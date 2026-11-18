@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sites · Bastion OS</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="css/console.css">
+<script src="js/splash.js"></script>
+<link rel="stylesheet" href="css/pages.css">
+<style>
+  .sites-body { display: flex; flex-direction: column; gap: 10px; }
+  .sites-main { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 294px minmax(0, 1fr); gap: 10px; }
+  .site-list { min-height: 0; }
+  .site-list .sl-search { padding: 7px 8px; border-bottom: 1px solid var(--line); background: var(--panel-2); }
+  .site-list .sl-scroll { overflow: auto; min-height: 0; flex: 1 1 auto; }
+  .site-item { display: block; width: 100%; text-align: left; padding: 7px 9px; border-bottom: 1px solid var(--line-2); }
+  .site-item:hover { background: #f8f8f8; }
+  .site-item[aria-selected="true"] { background: var(--blue-bg); }
+  .site-item .si-top { display: flex; align-items: center; gap: 6px; }
+  .site-item .si-name { font-size: 11.5px; font-weight: 500; color: var(--text); flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .site-item .si-meta { display: flex; align-items: center; gap: 6px; margin-top: 3px; font: 500 9.5px/1 var(--mono); color: var(--muted); }
+  .site-item .si-client { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .site-item .si-cov { margin-left: auto; color: var(--text-2); }
+  .site-item .si-cov.short { color: var(--amber); }
+  .rec-wrap { flex: 1 1 auto; min-height: 0; }
+  .geo-note { border: 1px solid var(--line); background: var(--panel-2); padding: 7px 9px; font-size: 11px; color: var(--text-2); line-height: 1.45; }
+  .geo-note.bad { border-color: var(--line-strong); background: #eef1f4; color: var(--text); }
+  .geo-note.ok { border-color: var(--line); background: var(--panel-2); }
+  .pin .tag-text { display: none; }
+</style>
+</head>
+<body data-nav="sites" data-crumb="Operations" data-here="Sites">
+<div class="app">
+  <aside data-shell="rail"></aside>
+  <div class="shell">
+    <header data-shell="topbar"></header>
+
+    <div class="page">
+      <div class="page-head">
+        <div class="page-title">Sites</div>
+        <div class="page-tools">
+          <button class="btn sm" type="button" id="export"><svg class="ic"><use href="#i-download"/></svg>Export</button>
+          <button class="btn primary sm" type="button" data-toast="Site registration opens with the client record attached"><svg class="ic"><use href="#i-plus"/></svg>Add site</button>
+        </div>
+      </div>
+
+      <div class="body sites-body">
+        <section class="kpis" aria-label="Site summary">
+          <div class="kpi"><div class="k-label"><span class="micro">Contracted posts</span></div><div class="k-val">56</div><div class="k-sub">across 8 client sites</div></div>
+          <div class="kpi"><div class="k-label"><span class="micro">Posts held</span></div><div class="k-val">53<small>/ 56</small></div><div class="k-sub">3 open right now</div></div>
+          <div class="kpi"><div class="k-label"><span class="micro">Sites covered</span></div><div class="k-val">5<small>/ 8</small></div><div class="k-sub">3 with an open post</div></div>
+          <div class="kpi"><div class="k-label"><span class="micro">Patrols on time</span></div><div class="k-val">89<small>%</small></div><div class="k-sub">2 rounds missed today</div></div>
+          <div class="kpi flag"><div class="k-label"><span class="micro">Open SOS</span></div><div class="k-val">1</div><div class="k-sub">Cedar Mall · Gate B</div></div>
+        </section>
+
+        <div class="sites-main">
+          <!-- site list -->
+          <section class="panel site-list">
+            <div class="panel-head"><h2>All sites</h2><span class="cap" id="siteCap">8</span></div>
+            <div class="sl-search">
+              <label class="field">
+                <svg class="ic"><use href="#i-search"/></svg>
+                <input type="text" id="q" placeholder="Search name, area or client" aria-label="Search sites">
+              </label>
+            </div>
+            <div class="sl-scroll" id="list" role="listbox" aria-label="Sites"></div>
+          </section>
+
+          <!-- map + record -->
+          <div class="stackcol">
+            <section class="panel" style="flex:0 0 330px">
+              <div class="panel-head">
+                <h2>Location</h2><span class="cap" id="mapCap">Geofence 160 m</span>
+                <div class="panel-tools">
+                  <span class="chip ok" id="mapState">11 / 12 on post</span>
+                </div>
+              </div>
+              <div class="map" style="height:300px">
+                <svg class="basemap" viewBox="0 0 1000 400" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Site locations">
+                  <rect width="1000" height="400" fill="#ffffff"/>
+                  <g class="grat" id="grat"></g>
+                  <g transform="translate(0,50) scale(1,0.6) translate(0,-100)">
+                    <path d="M188 300 C300 288 400 300 500 292 C600 284 700 292 792 306 L792 500 C710 512 620 500 520 506 C420 512 320 500 240 508 C216 511 198 507 188 500 Z" fill="#dbe7f3"/>
+                    <path d="M0 452 L188 452 L188 500 C140 512 70 524 0 528 Z" fill="#dbe7f3"/>
+                    <path d="M792 306 C840 316 900 330 1000 332 L1000 420 C930 418 860 406 792 396 Z" fill="#dbe7f3"/>
+                    <path d="M545 382 L700 388 L714 424 L556 428 Z" fill="#eef4fa" stroke="#b9cde0"/>
+                    <path d="M472 428 L648 424 L664 540 L472 536 Z" fill="#eef4fa" stroke="#b9cde0"/>
+                    <path d="M692 432 L900 420 L946 506 L702 524 Z" fill="#eef4fa" stroke="#b9cde0"/>
+                    <g stroke="#cfd9e3" fill="none">
+                      <path d="M0 236 L1000 250"/><path d="M236 60 L236 300"/><path d="M420 60 L424 300"/><path d="M600 60 L600 236"/><path d="M836 60 L836 300"/>
+                    </g>
+                    <g stroke="#7d9dbd" stroke-width="2" fill="none">
+                      <path d="M548 300 L592 380"/><path d="M664 470 L700 452"/><path d="M794 352 L860 420"/>
+                    </g>
+                    <g class="m-label">
+                      <text x="480" y="118" text-anchor="middle">LAGOS MAINLAND</text>
+                      <text x="92" y="316" text-anchor="middle">APAPA</text>
+                      <text x="414" y="272" text-anchor="middle" class="water">LAGOS HARBOUR</text>
+                      <text x="560" y="500" text-anchor="middle">VICTORIA ISLAND</text>
+                      <text x="806" y="478" text-anchor="middle">LEKKI</text>
+                    </g>
+                  </g>
+                  <g id="pins"></g>
+                </svg>
+                <div class="map-readout"><span>WGS 84</span><span>6.4550 N 3.3841 E</span></div>
+                <div class="map-legend"><div class="lg"><span class="sw" style="background:#6288a6"></span>Covered</div><div class="lg"><span class="sw" style="background:#2b5880"></span>Short</div><div class="lg"><span class="sw" style="background:#0b2740"></span>SOS open</div></div>
+              </div>
+            </section>
+
+            <section class="panel rec-wrap">
+              <div class="panel-head">
+                <h2 id="recName">Apapa Terminal 2</h2>
+                <span class="cap" id="recArea">Apapa · Apapa Ports Ltd</span>
+                <div class="panel-tools"><a class="btn xs" id="recBoard" href="board.html">Open on board</a></div>
+              </div>
+              <div class="rec-metrics">
+                <div class="rec-metric"><div class="m-lbl">Posts</div><div class="m-val" id="mPosts">12</div></div>
+                <div class="rec-metric"><div class="m-lbl">On post</div><div class="m-val" id="mOn">11</div></div>
+                <div class="rec-metric"><div class="m-lbl">Late</div><div class="m-val" id="mLate">3</div></div>
+                <div class="rec-metric"><div class="m-lbl">Geofence</div><div class="m-val" id="mGeo">160 m</div></div>
+              </div>
+              <div class="rec-section" style="padding-bottom:8px">
+                <div class="geo-note" id="recNote">—</div>
+              </div>
+              <div class="wrap-scroll" style="flex:1 1 auto">
+                <table class="tbl compact">
+                  <thead><tr><th style="width:26px"></th><th>Officer</th><th>Post</th><th style="width:70px">Sign-in</th><th style="width:86px">State</th></tr></thead>
+                  <tbody id="crew"></tbody>
+                </table>
+              </div>
+              <div class="panel-foot">
+                <span id="recFoot">Day shift · 96% patrols on time</span>
+                <span class="right">NFC enforced · GPS check-in</span>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+
+      <footer data-shell="status"></footer>
+    </div>
+  </div>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/shell.js"></script>
+<script>
+(function () {
+  boardStore.apply();
+  var state = { q: '', sel: 'apapa' };
+
+  var g = '';
+  for (var x = 0; x <= 1000; x += 50) g += '<line x1="' + x + '" y1="0" x2="' + x + '" y2="400"/>';
+  for (var y = 0; y <= 400; y += 50) g += '<line x1="0" y1="' + y + '" x2="1000" y2="' + y + '"' + (y % 100 === 0 ? ' class="major"' : '') + '/>';
+  document.getElementById('grat').innerHTML = g;
+  function mapY(y) { return 50 + (y - 100) * 0.6; }
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+  function statusClass(s) { return s.st === 'bad' ? 'bad' : s.st === 'warn' ? 'warn' : 'ok'; }
+  function siteStatus(s) {
+    var on = B.onPost(s.key);
+    if (s.status === 'bad') return { st: 'bad', label: 'SOS open' };
+    if (on < s.posts) return { st: 'warn', label: (s.posts - on) + ' open' };
+    return { st: 'ok', label: 'Covered' };
+  }
+
+  B.sites.forEach(function (s) { s.st = siteStatus(s).st; });
+
+  function sitePins() {
+    document.getElementById('pins').innerHTML = B.sites.map(function (s) {
+      var sy = mapY(s.y);
+      return '<g class="pin' + (s.key === state.sel ? ' sel' : '') + '" data-site="' + s.key + '" tabindex="0" role="button" aria-label="' + esc(s.name) + '">' +
+        '<circle class="ring" cx="' + s.x + '" cy="' + sy + '" r="24"/>' +
+        '<circle class="hit" cx="' + s.x + '" cy="' + sy + '" r="30"/>' +
+        '<circle class="body ' + s.st + '" cx="' + s.x + '" cy="' + sy + '" r="11"/>' +
+        '<text x="' + s.x + '" y="' + (sy + 3) + '" text-anchor="middle" style="font-size:8.5px">' + B.onPost(s.key) + '</text>' +
+        '<text class="tag-text" x="' + s.x + '" y="' + (sy + 25) + '" text-anchor="middle">' + esc(s.name) + '</text>' +
+      '</g>';
+    }).join('');
+  }
+
+  function renderList() {
+    var list = B.sites.filter(function (s) {
+      if (!state.q) return true;
+      var q = state.q.toLowerCase();
+      return (s.name + ' ' + s.area + ' ' + s.client).toLowerCase().indexOf(q) > -1;
+    });
+    document.getElementById('list').innerHTML = list.length ? list.map(function (s) {
+      var on = B.onPost(s.key);
+      return '<button class="site-item" type="button" role="option" aria-selected="' + (s.key === state.sel) + '" data-site="' + s.key + '">' +
+        '<div class="si-top"><span class="si-name">' + esc(s.name) + '</span>' +
+          '<span class="si-cov' + (on < s.posts ? ' short' : '') + '">' + on + '/' + s.posts + '</span></div>' +
+        '<div class="si-meta"><span class="si-client">' + esc(s.client) + '</span><span style="margin-left:auto">' + esc(s.area) + '</span></div>' +
+      '</button>';
+    }).join('') : '<div class="empty"><strong>No site matches</strong>Try an area or a client name.</div>';
+    document.getElementById('siteCap').textContent = list.length;
+  }
+
+  function select(key) {
+    var s = B.site(key); if (!s) return;
+    state.sel = key;
+    var on = B.onPost(key);
+    var crew = B.crew(key);
+    var late = crew.filter(function (o) { return o.state === 'late'; }).length;
+    var st = siteStatus(s);
+
+    document.getElementById('recName').textContent = s.name;
+    document.getElementById('recArea').textContent = s.area + ' · ' + s.client;
+    document.getElementById('recBoard').href = 'board.html#f=' + key;
+    document.getElementById('mPosts').textContent = s.posts;
+    document.getElementById('mOn').textContent = on;
+    document.getElementById('mLate').textContent = late;
+    document.getElementById('mGeo').textContent = s.geo;
+    document.getElementById('mapCap').textContent = 'Geofence ' + s.geo;
+    var ms = document.getElementById('mapState');
+    ms.className = 'chip ' + (st.st === 'ok' ? 'ok' : st.st === 'warn' ? 'warn' : 'bad');
+    ms.textContent = s.status === 'bad' ? 'SOS open' : on + ' / ' + s.posts + ' on post';
+    var note = document.getElementById('recNote');
+    note.className = 'geo-note' + (st.st === 'bad' ? ' bad' : st.st === 'warn' ? '' : ' ok');
+    note.textContent = s.note;
+    document.getElementById('recFoot').textContent = 'Day shift · ' + s.patrols + '% patrols on time';
+
+    document.getElementById('crew').innerHTML = crew.map(function (o) {
+      var cls = o.state === 'on' ? 'ok' : o.state === 'late' ? 'warn' : o.state === 'sos' ? 'bad' : '';
+      return '<tr>' +
+        '<td>' + B.avatarHTML(o) + '</td>' +
+        '<td class="name">' + esc(o.name) + '</td>' +
+        '<td class="dim">' + esc(o.post) + '</td>' +
+        '<td class="n">' + esc(o.time) + '</td>' +
+        '<td><span class="chip ' + cls + '">' + B.stateLabel[o.state] + '</span></td>' +
+      '</tr>';
+    }).join('');
+
+    renderList(); sitePins();
+  }
+
+  document.getElementById('list').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-site]'); if (b) select(b.getAttribute('data-site'));
+  });
+  document.getElementById('pins').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-site]'); if (b) select(b.getAttribute('data-site'));
+  });
+  document.getElementById('pins').addEventListener('keydown', function (e) {
+    var b = e.target.closest('[data-site]');
+    if (b && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); select(b.getAttribute('data-site')); }
+  });
+  document.getElementById('q').addEventListener('input', function (e) { state.q = e.target.value.trim(); renderList(); });
+  document.getElementById('export').addEventListener('click', function () { toast('Site register exported to CSV', 'download'); });
+
+  select(state.sel);
+})();
+</script>
+</body>
+</html>

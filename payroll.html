@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Payroll · Bastion OS</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="css/console.css">
+<script src="js/splash.js"></script>
+<link rel="stylesheet" href="css/pages.css">
+<link rel="stylesheet" href="css/fin.css">
+</head>
+<body data-nav="payroll" data-crumb="Finances">
+<div class="app">
+  <aside data-shell="rail"></aside>
+  <div class="shell">
+    <header data-shell="topbar"></header>
+
+    <div class="page">
+      <div class="page-head">
+        <div class="page-title">Payroll <span class="id">NOV · PAYS 28 NOV</span></div>
+        <div class="page-tools">
+          <label class="field" style="min-width:220px">
+            <svg class="ic"><use href="#i-search"/></svg>
+            <input type="text" id="q" placeholder="Find an officer, site or role" aria-label="Search the payroll run">
+          </label>
+          <button class="btn sm" type="button" id="exportBtn"><svg class="ic"><use href="#i-download"/></svg>Export</button>
+        </div>
+      </div>
+
+      <div class="body fin-body">
+        <section class="kpis" aria-label="November run">
+          <div class="kpi"><div class="k-label"><span class="micro">Officers net</span></div><div class="k-val" id="kOff">—</div><div class="k-sub" id="kOffSub"></div></div>
+          <div class="kpi"><div class="k-label"><span class="micro">Office staff net</span></div><div class="k-val" id="kStaff">—</div><div class="k-sub" id="kStaffSub"></div></div>
+          <div class="kpi"><div class="k-label"><span class="micro">Gross pay</span></div><div class="k-val" id="kGross">—</div><div class="k-sub" id="kGrossSub"></div></div>
+          <div class="kpi"><div class="k-label"><span class="micro">Deductions</span></div><div class="k-val" id="kDed">—</div><div class="k-sub">absence and lateness</div></div>
+          <div class="kpi flag"><div class="k-label"><span class="micro">Instant pay requested</span></div><div class="k-val" id="kInst">—</div><div class="k-sub" id="kInstSub"></div></div>
+        </section>
+
+        <section class="fin-charts" id="charts" aria-label="Payroll charts"></section>
+
+        <div class="pay-main">
+          <div class="pay-left">
+            <section class="panel table-panel pay-list">
+              <div class="panel-head">
+                <h2>Who gets paid</h2>
+                <div class="panel-tools">
+                  <div class="seg" role="group" aria-label="Payroll group">
+                    <button type="button" aria-pressed="true" data-staff="officers">Officers</button>
+                    <button type="button" aria-pressed="false" data-staff="staff">Office</button>
+                  </div>
+                </div>
+              </div>
+              <div class="wrap-scroll">
+                <table class="tbl compact">
+                  <thead><tr><th>Name</th><th>Site</th><th class="n">Days</th><th class="n">Net</th><th>State</th></tr></thead>
+                  <tbody id="payRows"></tbody>
+                </table>
+                <div class="empty" id="payEmpty" hidden><strong>No one matches</strong>Clear the search to see the run.</div>
+              </div>
+              <div class="panel-foot" id="payFoot"></div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head"><h2>Run totals</h2><span class="cap" id="runCap">officers</span></div>
+              <div class="panel-body" id="runTotals"></div>
+            </section>
+          </div>
+
+          <section class="panel payslip" id="slip"></section>
+        </div>
+      </div>
+
+      <footer data-shell="status"></footer>
+    </div>
+  </div>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/fin.js"></script>
+<script src="js/shell.js"></script>
+<script>
+(function () {
+  boardStore.apply();
+  var $ = function (id) { return document.getElementById(id); };
+  var state = { q: '', staff: 'officers', paid: {}, slip: FIN.officers[0].n };
+
+  function rowsFor() { return FIN.payroll(state.staff); }
+  function hits(p) {
+    return !state.q || (p.n + ' ' + p.s).toLowerCase().indexOf(state.q) > -1;
+  }
+
+  function paintKpis() {
+    var o = FIN.totals(FIN.officers), s = FIN.totals(FIN.office);
+    $('kOff').innerHTML = (o.net / 1e6).toFixed(2) + '<small>m</small>';
+    $('kOffSub').textContent = FIN.officers.length + ' officers on 26 days';
+    $('kStaff').innerHTML = (s.net / 1e6).toFixed(2) + '<small>m</small>';
+    $('kStaffSub').textContent = FIN.office.length + ' office staff';
+    $('kGross').innerHTML = ((o.gross + s.gross) / 1e6).toFixed(2) + '<small>m</small>';
+    $('kGrossSub').textContent = FIN.wageBill().count + ' people on the run';
+    $('kDed').innerHTML = ((o.ded + s.ded) / 1e6).toFixed(2) + '<small>m</small>';
+
+    var inst = FIN.officers.concat(FIN.office).filter(function (p) { return p.inst && !state.paid[p.n]; });
+    var due = inst.reduce(function (a, p) { return a + p.net; }, 0);
+    $('kInst').textContent = inst.length;
+    $('kInstSub').textContent = inst.length ? FIN.ngn(due) + ' for release' : 'nothing pending';
+  }
+
+  function paintCharts() {
+    var all = FIN.officers.concat(FIN.office);
+    var bands = [
+      { x: '≤160k', min: 0, max: 160000 },
+      { x: '160–260', min: 160000, max: 260000 },
+      { x: '260–500', min: 260000, max: 500000 },
+      { x: '500k+', min: 500000, max: Infinity }
+    ].map(function (b) {
+      return { x: b.x, a: all.filter(function (p) { return p.net >= b.min && p.net < b.max; }).length };
+    });
+    var bandMax = Math.max.apply(null, bands.map(function (b) { return b.a; })) || 1;
+
+    var bySite = {};
+    FIN.officers.forEach(function (o) { bySite[o.s] = (bySite[o.s] || 0) + o.net; });
+    var sites = Object.keys(bySite).map(function (k) { return [k, bySite[k]]; })
+      .sort(function (a, b) { return b[1] - a[1]; }).slice(0, 6);
+
+    var days = [26, 25, 24].map(function (d) {
+      return { x: d + ' days', a: FIN.officers.filter(function (o) { return parseInt(o.d, 10) === d; }).length };
+    });
+    var dayMax = Math.max.apply(null, days.map(function (d) { return d.a; })) || 1;
+
+    $('charts').innerHTML = [
+      FIN.chartCard('Net pay bands', all.length + ' people',
+        FIN.cols(bands.map(function (b) { return { x: b.x, a: b.a, cap: b.a }; }), bandMax),
+        'Count per band, November'),
+      FIN.chartCard('Net pay by site', FIN.mm(FIN.totals(FIN.officers).net / 1e6),
+        FIN.bars(sites.map(function (s) { return [s[0].replace(' Terminal 2', ''), s[1], FIN.mm(s[1] / 1e6)]; })),
+        'Six largest of nine'),
+      FIN.chartCard('Days signed in', 'of 26',
+        FIN.cols(days.map(function (d) { return { x: d.x, a: d.a, cap: d.a }; }), dayMax),
+        'Officers per attendance band')
+    ].join('');
+  }
+
+  function paintRun() {
+    var rows = rowsFor();
+    var shown = rows.filter(hits);
+    $('payRows').innerHTML = shown.map(function (p) {
+      var paid = !!state.paid[p.n];
+      return '<tr data-slip="' + p.n + '"' + (state.slip === p.n ? ' class="sel"' : '') + '>' +
+        '<td class="name">' + p.n + '</td>' +
+        '<td class="dim">' + p.s.replace(' Terminal 2', '') + '</td>' +
+        '<td class="n">' + p.d + '</td>' +
+        '<td class="n">' + FIN.money(p.net) + '</td>' +
+        '<td>' + (paid ? '<span class="chip ok">Paid</span>' : FIN.chip(p.st)) + '</td>' +
+        '</tr>';
+    }).join('');
+    $('payEmpty').hidden = shown.length > 0;
+
+    var t = FIN.totals(rows);
+    var paidRows = rows.filter(function (p) { return state.paid[p.n]; });
+    $('payFoot').textContent = (state.staff === 'staff' ? rows.length + ' office staff' : shown.length + ' of ' + FIN.officers.length + ' officers') +
+      ' · ' + FIN.ngn(t.net) + ' net · ' + (rows.length - paidRows.length) + ' to pay';
+    $('runCap').textContent = state.staff === 'staff' ? 'office staff' : 'officers';
+
+    var inst = rows.filter(function (p) { return p.inst && !state.paid[p.n]; });
+    var instDue = inst.reduce(function (a, p) { return a + p.net; }, 0);
+    $('runTotals').innerHTML =
+      '<div class="side-kv"><span>Gross pay</span><b>' + FIN.ngn(t.gross) + '</b></div>' +
+      '<div class="side-kv"><span>Deductions</span><b>' + (t.ded ? '−' + FIN.ngn(t.ded) : 'None') + '</b></div>' +
+      '<div class="side-kv"><span>Net pay</span><b>' + FIN.ngn(t.net) + '</b></div>' +
+      '<div class="side-kv"><span>Already paid</span><b>' + FIN.ngn(FIN.totals(paidRows).net) + '</b></div>' +
+      '<div class="side-kv"><span>Instant pay requested</span><b>' + (inst.length ? inst.length + ' · ' + FIN.ngn(instDue) : 'None') + '</b></div>' +
+      '<button class="btn primary sm" type="button" data-act="instant" style="width:100%;margin-top:10px"' +
+      (inst.length ? '' : ' disabled') + '>Release ' + inst.length + ' instant ' + (inst.length === 1 ? 'pay' : 'pays') + ' · ' + FIN.ngn(instDue) + '</button>';
+
+    var p = rows.filter(function (x) { return x.n === state.slip; })[0] || rows[0];
+    paintSlip(p);
+  }
+
+  function paintSlip(p) {
+    var host = $('slip');
+    if (!p) { host.innerHTML = ''; return; }
+    var paid = !!state.paid[p.n];
+    var absent = Math.max(0, 26 - parseInt(p.d, 10));
+    var deduction = p.x;
+
+    host.innerHTML =
+      '<div class="panel-head"><h2>Payslip</h2><span class="cap">November 2026</span></div>' +
+      '<div class="panel-body">' +
+        '<div class="slip-head"><div class="slip-who"><div class="slip-name">' + p.n + '</div>' +
+          '<div class="slip-meta">' + p.s + ' · pays 28 Nov</div></div>' +
+          (paid ? '<span class="chip ok">Paid 17 Nov</span>' : FIN.chip(p.st)) + '</div>' +
+        '<div class="slip-net"><span class="lbl">Net pay</span><b>' + FIN.ngn(p.net) + '</b>' +
+          '<small>' + (paid ? 'Released to the account on file' : 'Goes out 28 Nov to the account on file') + '</small></div>' +
+        '<div class="slip-lines">' +
+          '<div class="sl"><span>Base pay for 26 days</span><b>' + FIN.ngn(p.g) + '</b></div>' +
+          '<div class="sl"><span>Days signed in</span><b>' + p.d + ' of 26</b></div>' +
+          '<div class="sl"><span>Days not signed in</span><b>' + absent + (absent === 1 ? ' day' : ' days') + '</b></div>' +
+          '<div class="sl"><span>Absence and lateness</span><b' + (deduction ? ' class="neg"' : '') + '>' +
+            (deduction ? '−' + FIN.ngn(deduction) : 'None') + '</b></div>' +
+          '<div class="sl"><span>Instant pay</span><b>' + (p.inst ? 'Requested' : 'Not requested') + '</b></div>' +
+        '</div>' +
+        '<div class="sl-note">' + (deduction
+          ? 'Deduction comes from the attendance log: ' + absent + ' missed ' + (absent === 1 ? 'day' : 'days') + ' this month.'
+          : 'No attendance deduction this month.') + '</div>' +
+        '<div class="slip-act">' +
+          (paid
+            ? '<button class="btn sm" type="button" data-act="slipDownload">Download payslip</button>'
+            : (p.inst ? '<button class="btn primary sm" type="button" data-act="pay" data-name="' + p.n + '">Release instant pay</button>'
+              : '<button class="btn primary sm" type="button" data-act="pay" data-name="' + p.n + '">Pay now</button>') +
+              '<button class="btn sm" type="button" data-act="slipDownload">Download payslip</button>') +
+        '</div>' +
+      '</div>';
+  }
+
+  function paint() { paintKpis(); paintCharts(); paintRun(); }
+
+  $('q').addEventListener('input', function (e) {
+    state.q = e.target.value.trim().toLowerCase();
+    paintRun();
+  });
+  $('exportBtn').addEventListener('click', function () { toast('Payroll run exported to CSV', 'download'); });
+
+  document.querySelectorAll('[data-staff]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      state.staff = b.getAttribute('data-staff');
+      document.querySelectorAll('[data-staff]').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); });
+      var first = rowsFor()[0];
+      if (first) state.slip = first.n;
+      paintRun();
+    });
+  });
+
+  document.addEventListener('click', function (e) {
+    var row = e.target.closest('[data-slip]');
+    if (row) { state.slip = row.getAttribute('data-slip'); paintRun(); return; }
+
+    var b = e.target.closest('[data-act]');
+    if (!b) return;
+    var act = b.getAttribute('data-act');
+    if (act === 'pay') {
+      var name = b.getAttribute('data-name');
+      state.paid[name] = true;
+      paint();
+      toast(name + ' paid · net released', 'check');
+    } else if (act === 'instant') {
+      var rows = rowsFor();
+      var due = rows.filter(function (p) { return p.inst && !state.paid[p.n]; });
+      if (!due.length) return;
+      var amount = due.reduce(function (a, p) { return a + p.net; }, 0);
+      due.forEach(function (p) { state.paid[p.n] = true; });
+      paint();
+      toast('Instant pay released · ' + due.length + ' ' + (state.staff === 'staff' ? 'staff' : 'officers') + ' · ' + FIN.ngn(amount), 'check');
+    } else if (act === 'slipDownload') {
+      toast('Payslip downloaded', 'download');
+    }
+  });
+
+  paint();
+})();
+</script>
+</body>
+</html>

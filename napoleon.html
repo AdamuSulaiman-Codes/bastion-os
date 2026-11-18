@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Napoleon · Bastion OS</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="css/console.css">
+<script src="js/splash.js"></script>
+<link rel="stylesheet" href="css/pages.css">
+<style>
+  .nap-body { display: flex; flex-direction: column; gap: 10px; }
+  .nap-main { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 308px; gap: 10px; }
+  .chat { display: flex; flex-direction: column; min-height: 0; }
+  .chat-log { flex: 1 1 auto; overflow: auto; padding: 14px 18px 8px; }
+  .msg { max-width: 760px; margin-bottom: 16px; }
+  .msg.me { margin-left: auto; max-width: 540px; }
+  .msg .m-head { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; font: 500 9px/1 var(--mono); color: var(--faint); }
+  .msg.me .m-head { justify-content: flex-end; }
+  .msg .m-body { font-size: 12.5px; line-height: 1.55; color: var(--text); }
+  .msg.me .m-body { background: var(--blue-bg); border: 1px solid var(--blue-line); padding: 8px 10px; }
+  .msg .m-body p { margin: 0 0 7px; }
+  .msg .m-body p:last-child { margin: 0; }
+  .msg .m-body ul { margin: 0; padding-left: 0; list-style: none; }
+  .msg .m-body li { padding: 3px 0 3px 12px; position: relative; }
+  .msg .m-body li::before { content: ""; position: absolute; left: 0; top: 9px; width: 4px; height: 4px; background: var(--line-strong); }
+  .msg .m-body b { color: var(--text); }
+  .msg .m-src { margin-top: 7px; display: flex; gap: 4px; flex-wrap: wrap; }
+  .msg .m-src a { font: 500 9px/1 var(--mono); color: var(--text-2); border: 1px solid var(--line); background: var(--panel-2); padding: 3px 5px; }
+  .msg .m-src a:hover { border-color: var(--line-strong); color: var(--text); }
+  .chat-in { flex: 0 0 auto; border-top: 1px solid var(--line); padding: 9px 10px; background: var(--panel-2); }
+  .chat-in .box { display: flex; align-items: flex-end; gap: 6px; background: #ffffff; border: 1px solid var(--line-strong); padding: 5px 5px 5px 8px; box-shadow: inset 0 1px 2px rgba(16,16,16,.06); }
+  .chat-in .box:focus-within { border-color: var(--blue); box-shadow: 0 0 0 2px rgba(94,94,94,.16); }
+  .chat-in textarea { flex: 1 1 auto; border: 0; outline: 0; resize: none; height: 34px; font-size: 12px; line-height: 1.45; padding: 2px 0; background: transparent; }
+  .chat-chips { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 7px; }
+  .chat-chips button { font-size: 10.5px; color: var(--text-2); border: 1px solid var(--line); background: var(--panel); padding: 4px 7px; }
+  .chat-chips button:hover { border-color: var(--line-strong); color: var(--text); }
+  .tr-q { font-size: 11.5px; line-height: 1.45; color: var(--text-2); padding: 0 0 7px; border-bottom: 1px solid var(--line-2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .trace { list-style: none; margin: 0; padding: 0; overflow: auto; }
+  .trace-panel { flex: 1 1 auto; }
+  .trace-panel .panel-body { display: flex; flex-direction: column; overflow: hidden; }
+  .trace-panel .trace { flex: 1 1 auto; }
+  .tr { display: grid; grid-template-columns: 7px minmax(0, 1fr) auto; align-items: start; gap: 7px; padding: 5px 0; }
+  .tr-dot { width: 5px; height: 5px; margin-top: 5px; background: var(--line-strong); }
+  .tr[data-state="pending"] .tr-dot { background: transparent; box-shadow: inset 0 0 0 1px var(--line-strong); }
+  .tr[data-state="active"] .tr-dot { background: var(--text); animation: tr-pulse 1s ease-in-out infinite; }
+  .tr-label { font-size: 11.5px; line-height: 1.35; color: var(--faint); }
+  .tr[data-state="done"] .tr-label, .tr[data-state="active"] .tr-label { color: var(--text); }
+  .tr-label em { display: block; font: 400 9px/1.4 var(--mono); font-style: normal; color: var(--faint); }
+  .tr-time { font: 500 9px/1 var(--mono); color: var(--faint); padding-top: 4px; font-variant-numeric: tabular-nums; }
+  .tr-foot { margin-top: 7px; padding-top: 7px; border-top: 1px solid var(--line-2); font: 500 9px/1 var(--mono); color: var(--faint); }
+  .w-line { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--muted); }
+  .w-dot { width: 5px; height: 5px; background: var(--text-2); animation: tr-pulse 1s ease-in-out infinite; }
+  @keyframes tr-pulse { 50% { opacity: .22; } }
+  @media (prefers-reduced-motion: reduce) {
+    .tr[data-state="active"] .tr-dot, .w-dot { animation: none; }
+  }
+  .q-item { display: block; width: 100%; text-align: left; padding: 6px 0; border-bottom: 1px solid var(--line-2); font-size: 11.5px; color: var(--text-2); }
+  .q-item:hover { color: var(--text); }
+  .q-item .q-time { font: 500 9px/1 var(--mono); color: var(--faint); margin-top: 3px; }
+  .scope-line { font-size: 11px; color: var(--muted); line-height: 1.5; }
+</style>
+</head>
+<body data-nav="napoleon" data-crumb="Intelligence" data-here="Napoleon">
+<div class="app">
+  <aside data-shell="rail"></aside>
+  <div class="shell">
+    <header data-shell="topbar"></header>
+
+    <div class="page">
+      <div class="page-head">
+        <div class="page-title">Napoleon</div>
+        <div class="page-tools">
+          <button class="btn sm" type="button" id="clearChat">New thread</button>
+        </div>
+      </div>
+
+      <div class="body nap-body">
+        <div class="nap-main">
+          <section class="panel chat">
+            <div class="chat-log" id="log">
+              <div class="msg">
+                <div class="m-head">Napoleon · 08:40</div>
+                <div class="m-body">
+                  <p>Day shift is <b>53 of 56 posts</b> held. Three officers clocked in late at Apapa, and one SOS is open at Cedar Mall Gate B.</p>
+                  <p>The next decision is Admiralty’s night gate: nobody is rostered on it at 18:00, and five officers are dormant.</p>
+                </div>
+                <div class="m-src"><a href="people.html">Roster</a><a href="patrols.html">Patrols</a><a href="incidents.html">INC-2415</a><a href="attendance.html">Attendance</a></div>
+              </div>
+
+              <div class="msg me">
+                <div class="m-head">You · 08:41</div>
+                <div class="m-body">Which posts are short, and can we cover them with the dormant officers?</div>
+              </div>
+
+              <div class="msg">
+                <div class="m-head">Napoleon · 08:41</div>
+                <div class="m-body">
+                  <p>Three posts are open. Five officers are dormant, so all three can be covered today.</p>
+                  <ul>
+                    <li><b>Apapa Terminal 2 · north gate</b> — 11 of 12 on post. Tunde Fashola is a gate officer and already vetted for the port.</li>
+                    <li><b>Archive Annex · entrance</b> — 3 of 4 since 07:58. Chika Eze has not signed in. Blessing Eze is the closest match.</li>
+                    <li><b>Admiralty Estate · night gate</b> — 0 of 1 at 18:00. Needs a supervisor; Halima Abubakar is the only dormant officer with the grade.</li>
+                  </ul>
+                  <p>Covering all three leaves two officers dormant.</p>
+                </div>
+                <div class="m-src"><a href="board.html">Assign officers</a><a href="people.html">Guard list</a><a href="alerts.html">ALT-8831</a></div>
+              </div>
+            </div>
+
+            <div class="chat-in">
+              <form class="box" id="form">
+                <textarea id="input" placeholder="Ask about a site, an officer, a patrol or a record" aria-label="Ask Napoleon"></textarea>
+                <button class="btn primary sm" type="submit">Ask</button>
+              </form>
+              <div class="chat-chips">
+                <button type="button" data-q="What happened at Cedar Mall?">Cedar SOS</button>
+                <button type="button" data-q="Which officers were late?">Late today</button>
+                <button type="button" data-q="How is CP-12 doing?">CP-12</button>
+                <button type="button" data-q="What is uncovered tonight?">Tonight</button>
+              </div>
+            </div>
+          </section>
+
+          <div class="stackcol">
+            <section class="panel trace-panel">
+              <div class="panel-head"><h2>Trace</h2><span class="cap" id="traceState">done</span></div>
+              <div class="panel-body" style="padding:8px 12px 10px">
+                <div class="tr-q" id="traceQ">Which posts are short, and can we cover them with the dormant officers?</div>
+                <ol class="trace" id="trace"></ol>
+                <div class="tr-foot" id="traceFoot" role="status" aria-live="polite">4 reads · 1.8s</div>
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head"><h2>Recent questions</h2></div>
+              <div class="panel-body" style="padding:2px 10px">
+                <button class="q-item" type="button" data-q="Which posts are short?">Which posts are short?<div class="q-time">08:41 · today</div></button>
+                <button class="q-item" type="button" data-q="Show me yesterday's patrol misses.">Yesterday's patrol misses<div class="q-time">07:52 · today</div></button>
+                <button class="q-item" type="button" data-q="Who is closest to the 60 hour cap?">Who is closest to the 60 hour cap?<div class="q-time">16 Nov</div></button>
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head"><h2>Writes</h2></div>
+              <div class="panel-body" style="padding:9px 10px">
+                <div class="scope-line">Reads records only. Moving officers, acknowledging alerts and closing incidents stay on their own screens.</div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+
+      <footer data-shell="status"></footer>
+    </div>
+  </div>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/shell.js"></script>
+<script>
+(function () {
+  boardStore.apply();
+  var log = document.getElementById('log');
+  var input = document.getElementById('input');
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+
+  function answer(q) {
+    var l = q.toLowerCase();
+    if (l.indexOf('tonight') > -1 || l.indexOf('18:00') > -1 || l.indexOf('uncovered') > -1 || l.indexOf('night') > -1) {
+      return {
+        steps: [
+          ['Reading the night roster', '18:00 – 06:00'],
+          ['Checking hours against the cap', 'Guards · 59'],
+          ['Cross-checking dormant officers', '5 available'],
+          ['Drafting the answer', '1 open post']
+        ],
+        body: '<p>One night post is unrostered tonight: <b>Admiralty Estate · Gate 2</b>, 18:00 – 06:00.</p>' +
+          '<p>Halima Abubakar is the only dormant officer with the supervisor grade. Without her, the gate stays open and the site falls to 5 of 6 posts.</p>',
+        src: [['Attendance', 'attendance.html'], ['ALT-8831', 'alerts.html']]
+      };
+    }
+    if (l.indexOf('short') > -1 || l.indexOf('cover') > -1 || l.indexOf('open post') > -1) {
+      return {
+        steps: [
+          ['Reading the duty roster', '9 site sheets · 56 posts'],
+          ['Checking morning sign-ins', 'Attendance · 54 records'],
+          ['Cross-checking dormant officers', 'Guards · 5 free'],
+          ['Matching grade and vetting', 'Port clearance · 2 officers'],
+          ['Drafting the answer', '3 posts · 5 officers']
+        ],
+        body: '<p>Three posts are open. Five officers are dormant.</p><ul>' +
+          '<li><b>Apapa Terminal 2 · north gate</b> — 11 of 12 on post. Tunde Fashola is a gate officer and already vetted for the port.</li>' +
+          '<li><b>Archive Annex · entrance</b> — 3 of 4 since 07:58. Chika Eze has not signed in. Blessing Eze is the closest match.</li>' +
+          '<li><b>Admiralty Estate · night gate</b> — 0 of 1 at 18:00. Halima Abubakar is the only dormant officer with the supervisor grade.</li></ul>' +
+          '<p>Covering all three leaves two officers dormant.</p>',
+        src: [['Assign officers', 'board.html'], ['Dormant list', 'people.html'], ['Admiralty 18:00', 'alerts.html']]
+      };
+    }
+    if (l.indexOf('cedar') > -1 || l.indexOf('sos') > -1) {
+      return {
+        steps: [
+          ['Reading the incident', 'INC-2415 · Gate B'],
+          ['Pulling the checkpoint log', 'Round PR-1839 · CP-08'],
+          ['Checking the site sheet', 'Cedar Mall · 11 of 12'],
+          ['Drafting the answer', '1 open SOS · 11 m']
+        ],
+        body: '<p>Cedar Mall Gate B SOS is open, 11 minutes. Two officers are on scene and nobody is hurt.</p>' +
+          '<ul><li>Raised by <b>Fatima Bello</b> at 08:31 during a dispute at the turnstile.</li>' +
+          '<li>Lagos Police notified at 08:34. A statement is still outstanding.</li>' +
+          '<li>Patrol round paused at CP-08 while officers respond.</li></ul>',
+        src: [['INC-2415', 'incidents.html'], ['Cedar Mall', 'sites.html'], ['Round PR-1839', 'patrols.html']]
+      };
+    }
+    if (l.indexOf('late') > -1) {
+      return {
+        steps: [
+          ['Reading attendance', 'Today · 54 records'],
+          ['Comparing to the 06:00 shift', 'Late after 06:15'],
+          ['Checking the site sheet', 'Apapa Terminal 2'],
+          ['Drafting the answer', '3 officers']
+        ],
+        body: '<p>Three officers clocked in late, all at Apapa Terminal 2.</p><ul>' +
+          '<li><b>Hassan Lawal</b> · Yard · 06:38</li><li><b>Musa Bello</b> · Gate 1 · 06:41</li><li><b>Tunde Kareem</b> · Relief · 06:44</li></ul>' +
+          '<p>Late is anything past 06:15, so the north gate had one officer until 06:38.</p>',
+        src: [['Guards', 'people.html'], ['Attendance', 'attendance.html'], ['ALT-8834', 'alerts.html']]
+      };
+    }
+    if (l.indexOf('cp-12') > -1 || l.indexOf('tag') > -1 || l.indexOf('patrol') > -1) {
+      return {
+        steps: [
+          ['Reading patrol rounds', '8 rounds · today'],
+          ['Reading tag diagnostics', 'CP-12 · Trade Centre'],
+          ['Checking the site sheet', 'Trade Centre · 93%'],
+          ['Drafting the answer', '1 dead tag']
+        ],
+        body: '<p>CP-12 at Trade Centre has not answered for 26 hours across three rounds.</p>' +
+          '<ul><li>The tag battery is flat, so the miss is not the officer’s fault.</li>' +
+          '<li>The rest of the perimeter checks in on time · 93% for the site.</li>' +
+          '<li>A replacement is booked for 10:00 today.</li></ul>',
+        src: [['Patrols · CP-12', 'patrols.html'], ['ALT-8839', 'alerts.html']]
+      };
+    }
+    if (l.indexOf('cap') > -1 || l.indexOf('hour') > -1) {
+      return {
+        steps: [
+          ['Reading attendance', 'This week · 54 officers'],
+          ['Totalling hours', '60-hour cap'],
+          ['Ranking the top three', '3 officers over 50h'],
+          ['Drafting the answer', '1 at 56.5h']
+        ],
+        body: '<p><b>Ifeanyi Nwosu</b> is closest to the 60-hour cap at 56.5 hours this week.</p>' +
+          '<p>Two more shifts would take him over. Solomon Adeyemi is at 54 hours, everyone else is under 48.</p>',
+        src: [['Guards', 'people.html'], ['Attendance', 'attendance.html']]
+      };
+    }
+    return {
+      steps: [
+        ['Reading today’s records', 'Sites · Guards · Patrols'],
+        ['Checking attendance', '54 records'],
+        ['Checking alerts', '5 unacked'],
+        ['Drafting the answer', 'Nothing due before 09:00']
+      ],
+      body: '<p>Day shift: 53 of 56 posts held, three late at Apapa, one SOS open at Cedar Mall.</p>' +
+        '<p>Nothing else needs a decision before 09:00. The nearest risk is Admiralty’s night gate at 18:00.</p>',
+      src: [['Overview', 'index.html'], ['Alerts', 'alerts.html']]
+    };
+  }
+
+  function nowTime() { return '08:42'; }
+
+  var traceEl = document.getElementById('trace');
+  var traceQ = document.getElementById('traceQ');
+  var traceState = document.getElementById('traceState');
+  var traceFoot = document.getElementById('traceFoot');
+  var runSeq = 0;
+  var pendingWork = null;
+
+  function stepRows(steps, done) {
+    return steps.map(function (s, i) {
+      var state = done ? 'done' : (i ? 'pending' : 'active');
+      var time = done ? '<span class="tr-time">' + (0.3 + i * 0.35).toFixed(1) + 's</span>' : '<span class="tr-time"></span>';
+      return '<li class="tr" data-state="' + state + '"><span class="tr-dot"></span>' +
+        '<span class="tr-label">' + s[0] + '<em>' + s[1] + '</em></span>' + time + '</li>';
+    }).join('');
+  }
+
+  function paintDone(q, steps) {
+    traceQ.textContent = q;
+    traceEl.innerHTML = stepRows(steps, true);
+    traceState.textContent = 'done';
+    traceFoot.textContent = steps.length + ' reads · ' + (0.3 + (steps.length - 1) * 0.35 + 0.5).toFixed(1) + 's';
+  }
+
+  function runTrace(q, steps, onStep, onDone) {
+    var mine = ++runSeq;
+    traceQ.textContent = q;
+    traceEl.innerHTML = stepRows(steps, false);
+    traceState.textContent = 'working';
+    traceFoot.textContent = steps.length + ' reads queued';
+
+    var t0 = Date.now();
+    var i = 0;
+    var rows = traceEl.children;
+
+    (function walk() {
+      if (mine !== runSeq) return;
+      for (var k = 0; k < rows.length; k++) {
+        rows[k].setAttribute('data-state', k < i ? 'done' : k === i ? 'active' : 'pending');
+      }
+      onStep(i);
+      var wait = i === steps.length - 1 ? 520 : 340;
+      setTimeout(function () {
+        if (mine !== runSeq) return;
+        var row = rows[i];
+        if (row) {
+          row.setAttribute('data-state', 'done');
+          row.querySelector('.tr-time').textContent = ((Date.now() - t0) / 1000).toFixed(1) + 's';
+        }
+        i++;
+        if (i < rows.length) walk();
+        else {
+          traceState.textContent = 'done';
+          traceFoot.textContent = rows.length + ' reads · ' + ((Date.now() - t0) / 1000).toFixed(1) + 's';
+          onDone();
+        }
+      }, wait);
+    })();
+  }
+
+  function addMe(q) {
+    var el = document.createElement('div');
+    el.className = 'msg me';
+    el.innerHTML = '<div class="m-head">You · ' + nowTime() + '</div><div class="m-body">' + esc(q) + '</div>';
+    log.appendChild(el);
+    log.scrollTop = log.scrollHeight;
+  }
+
+  function addWork() {
+    var el = document.createElement('div');
+    el.className = 'msg work';
+    el.innerHTML = '<div class="m-head">Napoleon · ' + nowTime() + '</div>' +
+      '<div class="m-body w-line"><span class="w-dot"></span><span class="w-label">Reading</span></div>';
+    log.appendChild(el);
+    log.scrollTop = log.scrollHeight;
+    return el;
+  }
+
+  function addAnswer(a) {
+    var el = document.createElement('div');
+    el.className = 'msg';
+    el.innerHTML = '<div class="m-head">Napoleon · ' + nowTime() + '</div><div class="m-body">' + a.body + '</div>' +
+      '<div class="m-src">' + a.src.map(function (s) { return '<a href="' + s[1] + '">' + s[0] + '</a>'; }).join('') + '</div>';
+    log.appendChild(el);
+    log.scrollTop = log.scrollHeight;
+  }
+
+  function ask(q) {
+    if (!q) return;
+    addMe(q);
+    if (pendingWork) { pendingWork.remove(); pendingWork = null; }
+    var a = answer(q);
+    var work = addWork();
+    var label = work.querySelector('.w-label');
+    pendingWork = work;
+    runTrace(q, a.steps, function (i) {
+      label.textContent = a.steps[i][0] + ' · ' + (i + 1) + ' of ' + a.steps.length;
+    }, function () {
+      if (pendingWork === work) { work.remove(); pendingWork = null; }
+      addAnswer(a);
+    });
+  }
+
+  document.getElementById('form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var q = input.value.trim();
+    if (!q) return;
+    input.value = '';
+    ask(q);
+  });
+  input.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); document.getElementById('form').requestSubmit(); }
+  });
+  document.querySelectorAll('[data-q]').forEach(function (b) {
+    b.addEventListener('click', function () { ask(b.getAttribute('data-q')); });
+  });
+  document.getElementById('clearChat').addEventListener('click', function () {
+    ++runSeq;
+    if (pendingWork) { pendingWork.remove(); pendingWork = null; }
+    log.innerHTML = '';
+    traceQ.textContent = 'No run yet';
+    traceEl.innerHTML = '';
+    traceState.textContent = 'idle';
+    traceFoot.textContent = '—';
+    toast('New thread started', 'plus');
+  });
+
+  paintDone('Which posts are short, and can we cover them with the dormant officers?', answer('short').steps);
+
+  log.scrollTop = log.scrollHeight;
+})();
+</script>
+</body>
+</html>

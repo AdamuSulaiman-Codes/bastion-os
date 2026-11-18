@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Finances · Bastion OS</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="css/console.css">
+<script src="js/splash.js"></script>
+<link rel="stylesheet" href="css/pages.css">
+<link rel="stylesheet" href="css/fin.css">
+</head>
+<body data-nav="summary" data-crumb="Finances">
+<div class="app">
+  <aside data-shell="rail"></aside>
+  <div class="shell">
+    <header data-shell="topbar"></header>
+
+    <div class="page">
+      <div class="page-head">
+        <div class="page-title">Finances <span class="id">NOV · FY26</span></div>
+        <div class="page-tools">
+          <select class="select" id="period" style="width:132px" aria-label="Period">
+            <option>November 2026</option><option>October 2026</option><option>Q4 2026</option>
+          </select>
+          <button class="btn sm" type="button" id="exportBtn"><svg class="ic"><use href="#i-download"/></svg>Export</button>
+        </div>
+      </div>
+
+      <div class="body fin-body">
+        <section class="kpis" aria-label="This month">
+          <div class="kpi"><div class="k-label"><span class="micro">Earned this month</span></div><div class="k-val">48.2<small>m</small></div><div class="k-sub"><span class="up">+4.1%</span> on October</div></div>
+          <div class="kpi"><div class="k-label"><span class="micro">Spent on running it</span></div><div class="k-val">31.6<small>m</small></div><div class="k-sub">wages, fuel, equipment</div></div>
+          <div class="kpi"><div class="k-label"><span class="micro">Left over</span></div><div class="k-val">16.6<small>m</small></div><div class="k-sub">34.4% of what came in</div></div>
+          <div class="kpi"><div class="k-label"><span class="micro">Unpaid invoices</span></div><div class="k-val" id="kOwed">—</div><div class="k-sub" id="kOwedSub"></div></div>
+          <div class="kpi flag"><div class="k-label"><span class="micro">Wages due 28 Nov</span></div><div class="k-val" id="kWages">—</div><div class="k-sub" id="kWagesSub"></div></div>
+        </section>
+
+        <section class="fin-charts" id="charts" aria-label="Where the money went"></section>
+
+        <div class="fin-split">
+          <section class="panel" id="attention"></section>
+
+          <section class="panel table-panel">
+            <div class="panel-head"><h2>Issued this month</h2><span class="cap" id="invCap"></span>
+              <div class="panel-tools"><a class="btn xs" href="invoices.html">Open invoices</a></div>
+            </div>
+            <div class="wrap-scroll">
+              <table class="tbl compact">
+                <thead><tr><th>Invoice</th><th>Client</th><th class="n">Amount</th><th>Status</th></tr></thead>
+                <tbody id="invRows"></tbody>
+              </table>
+            </div>
+            <div class="panel-foot" id="invFoot"></div>
+          </section>
+        </div>
+      </div>
+
+      <footer data-shell="status"></footer>
+    </div>
+  </div>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/fin.js"></script>
+<script src="js/shell.js"></script>
+<script>
+(function () {
+  boardStore.apply();
+  var $ = function (id) { return document.getElementById(id); };
+
+  var it = FIN.invoiceTotals();
+  $('kOwed').innerHTML = (it.unpaid / 1e6).toFixed(2) + '<small>m</small>';
+  $('kOwedSub').textContent = FIN.mm(it.late / 1e6) + ' late on ' + it.lateCount;
+  var wb = FIN.wageBill();
+  $('kWages').innerHTML = (wb.net / 1e6).toFixed(1) + '<small>m</small>';
+  $('kWagesSub').textContent = FIN.officers.length + ' officers · ' + FIN.office.length + ' office staff';
+
+  /* ---------- charts ---------- */
+  var owed = FIN.invoices.filter(function (r) { return r.state !== 'Paid'; })
+    .sort(function (a, b) { return b.amount - a.amount; });
+  var owedTotal = owed.reduce(function (a, r) { return a + r.amount; }, 0);
+  var top = FIN.clients.slice().sort(function (a, b) { return b.v - a.v; }).slice(0, 5);
+
+  $('charts').innerHTML = [
+    FIN.chartCard('Money in against money out', '₦m',
+      FIN.cols(FIN.months.map(function (x) { return { x: x.m, a: x.rev, b: x.cost, cap: x.rev.toFixed(1) }; }), 52),
+      'Money in blue · cost pale'),
+    FIN.chartCard('Where the money went', FIN.mm(31.6),
+      FIN.donut(FIN.costSplit.map(function (c) { return [c[0], c[1], FIN.mm(c[1])]; }), '31.6', 'spent'),
+      'Six cost lines, November'),
+    FIN.chartCard('What clients still owe', FIN.mm(owedTotal / 1e6),
+      FIN.bars(owed.map(function (r) {
+        return [r.client.replace(FIN.short, ''), r.amount, FIN.mm(r.amount / 1e6), r.state === 'Overdue'];
+      })),
+      owed.length + ' invoices · ' + it.lateCount + ' late'),
+    FIN.chartCard('Biggest clients', 'monthly',
+      FIN.bars(top.map(function (c) { return [c.n.replace(FIN.short, ''), c.v, FIN.mm(c.v / 1e6)]; })),
+      '5 of ' + FIN.clients.length + ' accounts')
+  ].join('');
+
+  /* ---------- needs attention ---------- */
+  var items = [
+    { t: 'Admiralty Heights', m: 'INV-2031 · ₦0.98m · 15 days late', btn: 'Remind', href: 'invoices.html', who: 'INV-2031' },
+    { t: 'Bourdillon Estates', m: 'INV-2021 · ₦2.31m · 1 day late', btn: 'Remind', href: 'invoices.html', who: 'INV-2021' },
+    { t: 'Cedar Retail Group', m: 'renews Jan 2027 · ₦6.40m', btn: 'Open client', href: 'clients.html', who: 'Cedar Retail Group' },
+    { t: 'Lagos State Archive', m: '82% service level · target 95%', btn: 'Open client', href: 'clients.html', who: 'Lagos State Archive' },
+    { t: 'Fatima Bello · pay exception', m: '25 of 26 days · ₦9,000 held back', btn: 'Payslip', href: 'payroll.html', who: 'Fatima Bello' },
+    { t: 'Fuel line over budget', m: '₦5.14m spent of ₦4.80m', btn: 'Open budget', href: 'budget.html', who: 'Fuel & fleet' }
+  ];
+  $('attention').innerHTML =
+    '<div class="panel-head"><h2>Needs attention</h2><span class="cap">' + items.length + ' items</span></div>' +
+    '<div class="panel-body" style="padding:0">' + items.map(function (i) {
+      return '<div class="row"><div class="r-main"><div class="r-title">' + i.t + '</div>' +
+        '<div class="r-meta">' + i.m + '</div></div>' +
+        '<div class="r-side"><a class="btn xs" href="' + i.href + '">' + i.btn + '</a></div></div>';
+    }).join('') + '</div>' +
+    '<div class="panel-foot"><span>' + it.lateCount + ' overdue invoices</span><span class="right">' + FIN.mm(it.late / 1e6) + '</span></div>';
+
+  /* ---------- latest invoices ---------- */
+  $('invRows').innerHTML = FIN.invoices.map(function (r) {
+    return '<tr><td class="name">' + r.id + '</td><td>' + r.client + '</td>' +
+      '<td class="n">' + FIN.money(r.amount) + '</td><td>' + FIN.chip(r.state) + '</td></tr>';
+  }).join('');
+  $('invCap').textContent = it.count + ' issued';
+  $('invFoot').innerHTML = '<span>' + FIN.mm(it.billed / 1e6) + ' billed</span>' +
+    '<span class="right">' + FIN.mm(it.paid / 1e6) + ' collected</span>';
+
+  $('period').addEventListener('change', function (e) {
+    toast(e.target.value + ' selected · figures show November', 'calendar');
+  });
+  $('exportBtn').addEventListener('click', function () {
+    toast('Finance summary exported to CSV', 'download');
+  });
+})();
+</script>
+</body>
+</html>

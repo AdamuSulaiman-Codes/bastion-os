@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in · Bastion OS</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="css/console.css">
+<script src="js/splash.js"></script>
+<link rel="stylesheet" href="css/auth.css">
+</head>
+<body class="auth">
+
+<main class="auth-main">
+  <div class="card">
+    <div class="brandrow">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.6 19.4 5.8v6.1c0 4.6-3.1 8-7.4 9.5-4.3-1.5-7.4-4.9-7.4-9.5V5.8L12 2.6Z"/><path d="m9 11.8 2.2 2.2 4-4.2"/></svg>
+      <b>BASTION OS</b>
+      <span>Spectra Security</span>
+    </div>
+
+    <h1>Sign in</h1>
+    <p class="lead">Operations console</p>
+
+    <form id="form" novalidate>
+      <div class="a-field">
+        <label for="email">Work email</label>
+        <input class="a-input" id="email" name="email" type="email" inputmode="email"
+               autocomplete="username" placeholder="name@spectra.ng" spellcheck="false" autofocus>
+      </div>
+
+      <div class="a-field">
+        <label for="pw">Password</label>
+        <div class="a-pass">
+          <input class="a-input" id="pw" name="password" type="password" autocomplete="current-password">
+          <button class="a-reveal" id="reveal" type="button" aria-label="Show password" aria-pressed="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12S6 5.8 12 5.8 21.5 12 21.5 12 18 18.2 12 18.2 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="a-row">
+        <label class="a-check"><input type="checkbox" id="keep" checked>Keep me signed in</label>
+        <a class="a-link" href="#" id="forgot">Forgot password?</a>
+      </div>
+
+      <div class="a-err" id="err" role="alert" hidden></div>
+      <p class="a-note" id="note" role="status" aria-live="polite"></p>
+
+      <button class="a-btn" id="go" type="submit">Sign in</button>
+    </form>
+
+    <div class="a-alt">
+      <span>Have a licence key?</span>
+      <a href="activate.html">Activate Bastion OS</a>
+    </div>
+  </div>
+</main>
+
+<script>
+(function () {
+  var form = document.getElementById('form');
+  var email = document.getElementById('email');
+  var pw = document.getElementById('pw');
+  var err = document.getElementById('err');
+  var note = document.getElementById('note');
+  var go = document.getElementById('go');
+  var reveal = document.getElementById('reveal');
+
+  function fail(msg) {
+    err.innerHTML = '<b>Cannot sign in.</b> ' + msg;
+    err.hidden = false;
+  }
+  function clear() {
+    err.hidden = true;
+    err.textContent = '';
+    email.setAttribute('aria-invalid', 'false');
+    pw.setAttribute('aria-invalid', 'false');
+  }
+
+  reveal.addEventListener('click', function () {
+    var on = reveal.getAttribute('aria-pressed') === 'true';
+    reveal.setAttribute('aria-pressed', String(!on));
+    reveal.setAttribute('aria-label', on ? 'Show password' : 'Hide password');
+    pw.type = on ? 'password' : 'text';
+    pw.focus();
+  });
+
+  document.getElementById('forgot').addEventListener('click', function (e) {
+    e.preventDefault();
+    var to = email.value.trim();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(to)) {
+      fail('Enter your work email first, then choose Forgot password.');
+      email.focus();
+      return;
+    }
+    clear();
+    note.textContent = 'Reset link sent to ' + to + ' · expires in 30 minutes.';
+    note.classList.add('on');
+  });
+
+  [email, pw].forEach(function (el) {
+    el.addEventListener('input', function () {
+      clear();
+      if (note.classList.contains('on')) { note.textContent = ''; note.classList.remove('on'); }
+    });
+  });
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    clear();
+    var v = email.value.trim();
+    if (!v) { fail('Enter your work email.'); email.setAttribute('aria-invalid', 'true'); email.focus(); return; }
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(v)) {
+      fail('That address is missing a domain. Check it and try again.');
+      email.setAttribute('aria-invalid', 'true'); email.focus(); return;
+    }
+    if (!pw.value) { fail('Enter your password.'); pw.setAttribute('aria-invalid', 'true'); pw.focus(); return; }
+
+    go.disabled = true;
+    go.textContent = 'Signing in…';
+    setTimeout(function () {
+      /* replays the startup plate when the console opens */
+      try { sessionStorage.removeItem('bastion.boot'); } catch (_) {}
+      location.href = 'index.html';
+    }, 700);
+  });
+})();
+</script>
+</body>
+</html>

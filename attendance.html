@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Attendance · Bastion OS</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="css/console.css">
+<script src="js/splash.js"></script>
+<link rel="stylesheet" href="css/pages.css">
+<style>
+  .att-body { display: flex; flex-direction: column; gap: 10px; height: 100%; min-height: 0; }
+
+  /* inline counts in the page head — no KPI cards */
+  .head-counts { display: flex; align-items: baseline; gap: 0; margin-left: 4px; min-width: 0; }
+  .hc { display: flex; align-items: baseline; gap: 5px; padding: 0 11px; border-left: 1px solid var(--line); white-space: nowrap; }
+  .hc b { font: 500 14px/1 var(--mono); color: var(--text); letter-spacing: -.4px; }
+  .hc span { font: 600 9px/1 var(--ui); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+
+  /* day switcher */
+  .daybar {
+    flex: 0 0 auto;
+    display: flex; align-items: center; gap: 10px;
+    padding: 4px 8px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--r);
+    min-width: 0;
+  }
+  .days { display: flex; gap: 3px; min-width: 0; overflow-x: auto; }
+  .daybtn {
+    position: relative;
+    flex: 0 0 auto;
+    min-width: 50px; height: 32px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    padding: 0 7px;
+    border: 1px solid var(--line);
+    background: linear-gradient(#ffffff, #f2f2f2);
+    border-radius: var(--r);
+  }
+  .daybtn .dow { font: 600 8px/1 var(--ui); letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
+  .daybtn .dnum { font: 500 12px/1 var(--mono); letter-spacing: -.2px; color: var(--text); }
+  .daybtn:hover { background: #ffffff; border-color: var(--line-strong); }
+  .daybtn.today::before {
+    content: ""; position: absolute; top: 5px; right: 5px;
+    width: 4px; height: 4px; background: var(--blue);
+  }
+  .daybtn[aria-pressed="true"] { background: var(--ink); border-color: var(--blue-2); }
+  .daybtn[aria-pressed="true"] .dow { color: #a5a5a5; }
+  .daybtn[aria-pressed="true"] .dnum { color: #ffffff; }
+  .daybtn[aria-pressed="true"].today::before { background: #ffffff; }
+  .day-full {
+    margin-left: auto; padding-right: 4px;
+    font: 500 9.5px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase;
+    color: var(--muted); white-space: nowrap;
+  }
+
+  .att-body .toolbar .field { flex: 0 1 320px; min-width: 180px; }
+  .att-body #filter { width: 154px; }
+
+  .tbl.att { table-layout: fixed; }
+  .tbl.att thead th { height: 28px; }
+  .tbl.att tbody td { height: 34px; }
+  .tbl.att tbody tr { cursor: pointer; }
+  .tbl.att .c-site { width: 200px; }
+  .tbl.att .c-in { width: 104px; }
+  .tbl.att .c-shift { width: 130px; }
+  .tbl.att .c-geo { width: 160px; }
+
+  .att-name { display: flex; align-items: baseline; gap: 7px; min-width: 0; }
+  .att-name .n { font-size: 12px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .att-name .g-site { display: none; font: 400 10px/1 var(--mono); color: var(--faint); white-space: nowrap; }
+
+  .att-time { font: 500 11.5px/1 var(--mono); color: var(--text); font-variant-numeric: tabular-nums; }
+  .st { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--text); white-space: nowrap; }
+  .st.notin { color: var(--muted); }
+
+  .empty-state { padding: 40px 16px; text-align: center; color: var(--muted); font-size: 12px; }
+  .empty-state strong { display: block; color: var(--text-2); font-size: 13px; margin-bottom: 3px; }
+
+  @media (max-width: 1400px) { .hc.opt { display: none; } }
+  @media (max-width: 1120px) {
+    .tbl.att .col-site { display: none; }
+    .att-name .g-site { display: inline; }
+    .att-body #filter { width: 138px; }
+  }
+  @media (max-width: 980px) {
+    .hc.site { display: none; }
+    .day-full { display: none; }
+  }
+  @media (max-width: 940px) { .hc.opt2 { display: none; } }
+  @media (max-width: 960px) {
+    /* site drops to a second line so long names are never cut */
+    .att-name { display: block; }
+    .att-name .n { display: block; }
+    .att-name .g-site { display: block; font: 400 9.5px/1.4 var(--mono); margin-top: 1px; }
+    .tbl.att tbody td { height: auto; padding-top: 7px; padding-bottom: 7px; }
+    .tbl.att .c-in { width: 96px; }
+    .tbl.att .c-shift { width: 116px; }
+    .tbl.att .c-geo { width: 148px; }
+  }
+</style>
+</head>
+<body data-nav="attendance" data-crumb="Operations" data-here="Attendance">
+<div class="app">
+  <aside data-shell="rail"></aside>
+  <div class="shell">
+    <header data-shell="topbar"></header>
+
+    <div class="page">
+      <div class="page-head">
+        <div class="page-title">Attendance</div>
+        <div class="head-counts" id="counts" aria-label="Day summary"></div>
+        <div class="page-tools">
+          <a class="btn sm" href="people.html"><svg class="ic"><use href="#i-users"/></svg>Guard roster</a>
+        </div>
+      </div>
+
+      <div class="body att-body">
+        <div class="daybar" role="group" aria-label="Attendance day">
+          <div class="days" id="days"></div>
+          <span class="day-full" id="dayFull">—</span>
+        </div>
+
+        <div class="toolbar">
+          <label class="field">
+            <svg class="ic"><use href="#i-search"/></svg>
+            <input type="text" id="q" placeholder="Search guard or site…" aria-label="Search guard or site">
+          </label>
+          <select class="select" id="filter" aria-label="Filter records"></select>
+          <span class="spacer"></span>
+          <button class="btn sm" type="button" id="export"><svg class="ic"><use href="#i-download"/></svg>Export CSV</button>
+        </div>
+
+        <section class="panel flex-1" style="min-height:0">
+          <div class="wrap-scroll" style="height:100%">
+            <table class="tbl att">
+              <thead>
+                <tr>
+                  <th>Guard</th>
+                  <th class="col-site c-site">Site</th>
+                  <th class="c-in">Check-in</th>
+                  <th class="c-shift">06:00 shift</th>
+                  <th class="c-geo">Geofence status</th>
+                </tr>
+              </thead>
+              <tbody id="rows"></tbody>
+            </table>
+            <div class="empty-state" id="empty" hidden><strong>No record matches</strong>Clear the search or pick another day.</div>
+          </div>
+          <div class="panel-foot">
+            <span id="footL" aria-live="polite"></span>
+            <span class="right" id="footR"></span>
+          </div>
+        </section>
+      </div>
+
+      <footer data-shell="status"></footer>
+    </div>
+  </div>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/shell.js"></script>
+<script>
+(function () {
+  boardStore.apply();
+
+  /* the console runs on a fixed shift clock (08:42, Tue 17 Nov), so the day
+     strip is fixed too rather than reading the machine clock */
+  var DAYS = [
+    { key: '2026-11-17', dow: 'Tue', num: '17', long: 'Tuesday 17 November' },
+    { key: '2026-11-16', dow: 'Mon', num: '16', long: 'Monday 16 November' },
+    { key: '2026-11-15', dow: 'Sun', num: '15', long: 'Sunday 15 November' },
+    { key: '2026-11-14', dow: 'Sat', num: '14', long: 'Saturday 14 November' },
+    { key: '2026-11-13', dow: 'Fri', num: '13', long: 'Friday 13 November' },
+    { key: '2026-11-12', dow: 'Thu', num: '12', long: 'Thursday 12 November' },
+    { key: '2026-11-11', dow: 'Wed', num: '11', long: 'Wednesday 11 November' }
+  ];
+
+  var FILTERS = [
+    { id: 'all',    label: 'All records' },
+    { id: 'late',   label: 'Late' },
+    { id: 'ontime', label: 'On time' },
+    { id: 'in',     label: 'Inside geofence' },
+    { id: 'out',    label: 'Outside geofence' },
+    { id: 'notin',  label: 'Not in' }
+  ];
+
+  var state = { day: DAYS[0].key, filter: 'all', q: '' };
+  var cache = {};
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+  function day(key) { for (var i = 0; i < DAYS.length; i++) if (DAYS[i].key === key) return DAYS[i]; return DAYS[0]; }
+  function siteName(k) { var s = B.site(k); return s ? s.name : '—'; }
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+
+  /* FNV-1a — stable per officer + day, so a reload never reshuffles history */
+  function hash(s) {
+    var h = 2166136261;
+    for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return h >>> 0;
+  }
+  function minutes(t) { var p = t.split(':'); return (+p[0]) * 60 + (+p[1]); }
+  function clock(off) { var m = 6 * 60 + off; return pad(Math.floor(m / 60)) + ':' + pad(m % 60); }
+
+  /* one check-in per assigned officer, per day */
+  function rowsFor(d) {
+    if (cache[d.key]) return cache[d.key];
+    var isToday = d.key === DAYS[0].key;
+    var list = [];
+
+    B.roster.forEach(function (o) {
+      if (o.site === 'bench') return;                 /* not rostered — no record */
+      if (isToday) {
+        if (o.time === '—') { list.push({ o: o, time: '', late: false, geo: '', notIn: true, rank: 0 }); return; }
+        var off = minutes(o.time) - 6 * 60;
+        list.push({ o: o, time: o.time, late: off > 15, geo: '', notIn: false, rank: hash(o.id + 'G' + d.key) });
+      } else {
+        var h = hash(o.id + d.key);
+        if (h % 100 < 4) { list.push({ o: o, time: '', late: false, geo: '', notIn: true, rank: 0 }); return; }
+        var lh = hash(o.id + 'L' + d.key) % 100;
+        var late = lh < 7;
+        var off2 = late ? 16 + (hash(o.id + 'X' + d.key) % 43) : -22 + (hash(o.id + 'X' + d.key) % 37);
+        list.push({ o: o, time: clock(off2), late: late, geo: '', notIn: false, rank: hash(o.id + 'G' + d.key) });
+      }
+    });
+
+    /* an officer reads outside the fence when the day's fix is weak */
+    list.forEach(function (r) {
+      if (r.notIn) return;
+      r.geo = hash(r.o.id + 'F' + d.key) % 100 < 6 ? 'out' : 'in';
+    });
+
+    list.sort(function (a, b) {
+      if (a.notIn !== b.notIn) return a.notIn ? 1 : -1;
+      if (a.notIn) return a.o.name < b.o.name ? -1 : 1;
+      return a.time < b.time ? 1 : a.time > b.time ? -1 : 0;
+    });
+    cache[d.key] = list;
+    return list;
+  }
+
+  function matches(r) {
+    var f = state.filter;
+    if (f === 'late' && !r.late) return false;
+    if (f === 'ontime' && (r.late || r.notIn)) return false;
+    if (f === 'in' && r.geo !== 'in') return false;
+    if (f === 'out' && r.geo !== 'out') return false;
+    if (f === 'notin' && !r.notIn) return false;
+    if (state.q) {
+      var hay = (r.o.name + ' ' + r.o.id + ' ' + r.o.post + ' ' + siteName(r.o.site)).toLowerCase();
+      if (hay.indexOf(state.q) === -1) return false;
+    }
+    return true;
+  }
+
+  /* ---------- day strip ---------- */
+  var daysEl = document.getElementById('days');
+  daysEl.innerHTML = DAYS.map(function (d, i) {
+    return '<button class="daybtn' + (i === 0 ? ' today' : '') + '" type="button" data-day="' + d.key + '"' +
+      ' aria-pressed="' + (i === 0) + '" aria-label="' + d.long + (i === 0 ? ', today' : '') + '">' +
+      '<span class="dow">' + (i === 0 ? 'Today' : d.dow) + '</span>' +
+      '<span class="dnum">' + d.num + '</span></button>';
+  }).join('');
+
+  daysEl.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-day]');
+    if (!b) return;
+    state.day = b.getAttribute('data-day');
+    daysEl.querySelectorAll('[data-day]').forEach(function (x) {
+      x.setAttribute('aria-pressed', String(x === b));
+    });
+    render();
+  });
+
+  /* ---------- toolbar ---------- */
+  var filterEl = document.getElementById('filter');
+  filterEl.innerHTML = FILTERS.map(function (f) { return '<option value="' + f.id + '">' + f.label + '</option>'; }).join('');
+  filterEl.addEventListener('change', function () { state.filter = filterEl.value; render(); });
+  document.getElementById('q').addEventListener('input', function (e) {
+    state.q = e.target.value.trim().toLowerCase(); render();
+  });
+
+  /* ---------- render ---------- */
+  var rowsEl = document.getElementById('rows');
+
+  function paintCounts(list) {
+    var inCount = 0, outCount = 0, notIn = 0;
+    list.forEach(function (r) {
+      if (r.notIn) { notIn++; return; }
+      if (r.geo === 'out') outCount++; else inCount++;
+    });
+    document.getElementById('counts').innerHTML =
+      '<div class="hc"><b>' + (inCount + outCount) + '</b><span>Check-ins</span></div>' +
+      '<div class="hc opt2"><b>' + inCount + '</b><span>Inside geofence</span></div>' +
+      '<div class="hc"><b>' + outCount + '</b><span>Outside geofence</span></div>' +
+      '<div class="hc opt site"><b>' + notIn + '</b><span>Not in</span></div>';
+  }
+
+  function render() {
+    var d = day(state.day);
+    var all = rowsFor(d);
+    var list = all.filter(matches);
+
+    rowsEl.innerHTML = list.map(function (r) {
+      var o = r.o, site = siteName(o.site);
+      return '<tr data-o="' + o.id + '" tabindex="0">' +
+        '<td><div class="att-name"><span class="n">' + esc(o.name) + '</span>' +
+          '<span class="g-site" aria-hidden="true">' + esc(site) + '</span></div></td>' +
+        '<td class="col-site name" title="' + esc(site) + '">' + esc(site) + '</td>' +
+        '<td class="att-time">' + (r.notIn ? '<span class="faint">—</span>' : r.time) + '</td>' +
+        '<td>' + (r.notIn
+          ? '<span class="st notin">Not in</span>'
+          : '<span class="st ' + (r.late ? 'late' : 'on') + '">' + (r.late ? 'Late' : 'On time') + '</span>') + '</td>' +
+        '<td>' + (r.notIn
+          ? '<span class="faint">—</span>'
+          : '<span class="st ' + r.geo + '">' + (r.geo === 'out' ? 'Outside geofence' : 'Inside geofence') + '</span>') + '</td>' +
+      '</tr>';
+    }).join('');
+
+    document.getElementById('empty').hidden = list.length > 0;
+    document.getElementById('dayFull').textContent = d.long;
+    document.getElementById('footL').textContent = 'Showing ' + list.length + ' of ' + all.length + ' records';
+    var late = all.filter(function (r) { return r.late; }).length;
+    document.getElementById('footR').textContent = late ? late + ' late sign-ins' : '';
+    paintCounts(all);
+  }
+
+  /* ---------- row → guard record ---------- */
+  rowsEl.addEventListener('click', function (e) {
+    var tr = e.target.closest('tr[data-o]');
+    if (tr) location.href = 'people.html?guard=' + tr.getAttribute('data-o');
+  });
+  rowsEl.addEventListener('keydown', function (e) {
+    var tr = e.target.closest('tr[data-o]');
+    if (tr && e.key === 'Enter') location.href = 'people.html?guard=' + tr.getAttribute('data-o');
+  });
+
+  /* ---------- export ---------- */
+  document.getElementById('export').addEventListener('click', function () {
+    var list = rowsFor(day(state.day)).filter(matches);
+    var rows = [['Guard', 'Guard ID', 'Site', 'Check-in', '06:00 shift', 'Geofence']];
+    list.forEach(function (r) {
+      rows.push([r.o.name, r.o.id, siteName(r.o.site), r.notIn ? 'No check-in' : r.time,
+                 r.notIn ? 'Not in' : r.late ? 'Late' : 'On time',
+                 r.notIn ? '—' : r.geo === 'out' ? 'Outside geofence' : 'Inside geofence']);
+    });
+    var csv = rows.map(function (row) {
+      return row.map(function (c) { return '"' + String(c).replace(/"/g, '""') + '"'; }).join(',');
+    }).join('\r\n');
+    var url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    var a = document.createElement('a');
+    a.href = url; a.download = 'bastion-attendance-' + state.day + '.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+    toast('Exported ' + (rows.length - 1) + ' records · ' + day(state.day).long, 'download');
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

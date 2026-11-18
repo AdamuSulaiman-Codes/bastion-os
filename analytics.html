@@ -1,0 +1,761 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Data analytics · Bastion OS</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="css/console.css">
+<script src="js/splash.js"></script>
+<link rel="stylesheet" href="css/pages.css">
+<style>
+  .data-body { display: flex; flex-direction: column; gap: 10px; }
+  .data-body > * { flex: 0 0 auto; }
+
+  /* ---------- period band ---------- */
+  .period { display: flex; align-items: flex-end; gap: 16px; padding: 12px 14px; flex-wrap: wrap; }
+  .pf { display: flex; flex-direction: column; gap: 5px; }
+  .pf label { font: 600 9px/1 var(--ui); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .pf .input { width: 148px; }
+  .presets { margin-left: auto; }
+  .period-note {
+    padding: 7px 14px; border-top: 1px solid var(--line-2);
+    background: var(--panel-2); font: 500 10px/1 var(--mono); color: var(--muted);
+  }
+
+  /* ---------- register totals ---------- */
+  .kpi4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+  .dcard { background: var(--panel); border: 1px solid var(--line); padding: 12px 13px 11px; min-width: 0; }
+  .dc-top { display: flex; align-items: center; gap: 8px; }
+  .dc-ic { width: 24px; height: 24px; display: grid; place-items: center; flex: 0 0 auto;
+           border: 1px solid var(--line-strong); background: var(--panel-2); color: var(--text-2); }
+  .dc-ic .ic { width: 13px; height: 13px; }
+  .dc-count { margin-left: auto; font: 500 21px/1 var(--mono); letter-spacing: -1px; color: var(--text); }
+  .dcard h3 { margin: 10px 0 8px; font: 600 11px/1.2 var(--ui); color: var(--text); }
+  .split { display: flex; height: 7px; background: var(--panel-3); overflow: hidden; }
+  .split i { display: block; height: 100%; }
+  .split i.a { background: var(--blue); }
+  .split i.b { background: #0b2740; }
+  .dc-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 8px; }
+  .dc-legend span { display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; color: var(--muted); }
+  .dc-legend b { font: 500 10.5px/1 var(--mono); color: var(--text-2); }
+  .dc-legend .sw { width: 8px; height: 8px; flex: 0 0 auto; }
+  .sw.a { background: var(--blue); } .sw.b { background: #0b2740; }
+
+  /* ---------- chart grid ---------- */
+  .charts { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 10px; }
+  .ch-8 { grid-column: span 8; } .ch-6 { grid-column: span 6; } .ch-4 { grid-column: span 4; }
+  .charts .panel-body { padding: 12px 12px 10px; display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+
+  .plot { position: relative; display: grid; gap: 3px; align-items: end; height: 170px; }
+  .plot-sm { height: 128px; }
+  .plot-fill { flex: 1 1 auto; height: auto; min-height: 110px; }
+  .bcol { display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; min-width: 0; }
+  .cv { font: 500 9.5px/1 var(--mono); color: var(--text-2); margin-bottom: 4px; white-space: nowrap; }
+  .bar { width: 100%; max-width: 56px; display: flex; flex-direction: column; }
+  .bar i { display: block; min-height: 0; }
+  .s1 { background: var(--blue); } .s2 { background: #2b5880; }
+  .s3 { background: #6288a6; } .s4 { background: #c2cad2; }
+
+  .xlabels { display: grid; gap: 3px; margin-top: 5px; }
+  .xlabels span { font: 500 9px/1 var(--mono); color: var(--muted); text-align: center; white-space: nowrap; overflow: hidden; }
+
+  .lgd { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+  .lgd span { display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; color: var(--muted); }
+  .lgd b { font: 500 10.5px/1 var(--mono); color: var(--text-2); }
+  .lgd i { width: 9px; height: 9px; flex: 0 0 auto; }
+
+  .tline { position: absolute; left: 0; right: 0; border-top: 1px solid var(--blue-line); pointer-events: none; }
+
+  /* donut */
+  .mix { display: flex; align-items: center; gap: 16px; min-height: 0; }
+  .donut { width: 148px; height: 148px; flex: 0 0 auto; position: relative; }
+  .donut svg { width: 100%; height: 100%; display: block; }
+  .donut-mid { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; gap: 3px; }
+  .donut-mid b { font: 500 17px/1 var(--mono); color: var(--text); letter-spacing: -.5px; }
+  .donut-mid span { font: 600 8.5px/1 var(--ui); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+  .mix-list { display: grid; gap: 6px; flex: 1 1 auto; min-width: 0; }
+  .mix-row { display: grid; grid-template-columns: 9px minmax(0, 1fr) auto auto; align-items: center; gap: 7px; font-size: 10.5px; color: var(--muted); }
+  .mix-row i { width: 9px; height: 9px; }
+  .mix-row b { font: 500 10.5px/1 var(--mono); color: var(--text); }
+  .mix-row em { font: 500 10px/1 var(--mono); font-style: normal; color: var(--faint); min-width: 30px; text-align: right; }
+
+  /* severity / site bars */
+  .rows { display: grid; gap: 8px; }
+  .panel-body > .rows { flex: 1 1 auto; align-content: space-between; }
+  .brow { display: grid; grid-template-columns: 100px minmax(0, 1fr) 34px; align-items: center; gap: 8px; }
+  .brow .bn { font-size: 11px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .brow .bv { font: 500 10px/1 var(--mono); color: var(--text); text-align: right; }
+  .track { height: 7px; background: var(--panel-3); overflow: hidden; min-width: 0; }
+  .track i { display: block; height: 100%; background: var(--blue); }
+  .track.t2 i { background: #6288a6; }
+  .track.t3 i { background: #0b2740; }
+
+  .shead, .srow { display: grid; grid-template-columns: minmax(0, 1.3fr) 44px minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 9px; }
+  .shead { padding-bottom: 6px; border-bottom: 1px solid var(--line-2); }
+  .shead span { font: 600 8.5px/1 var(--ui); letter-spacing: .08em; text-transform: uppercase; color: var(--faint); white-space: nowrap; }
+  .shead span:not(:first-child) { text-align: right; }
+  .srow { padding: 5.5px 0; border-bottom: 1px solid var(--line-2); }
+  .srow:last-child { border-bottom: 0; }
+  .srow .sn { font-size: 10.5px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .srow .sm { font: 500 9.5px/1 var(--mono); color: var(--muted); text-align: right; white-space: nowrap; }
+  .barcell { display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .barcell .track { flex: 1 1 auto; }
+  .barcell .sm { flex: 0 0 30px; text-align: right; }
+
+  /* ---------- dataset cards ---------- */
+  .dsg { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+  .ds { display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--line); padding: 12px 13px 11px; min-width: 0; }
+  .ds-top { display: flex; align-items: center; gap: 8px; }
+  .ds-count { margin-left: auto; font: 500 10px/1 var(--mono); color: var(--muted); }
+  .ds h3 { margin: 10px 0 4px; font: 600 12px/1.25 var(--ui); color: var(--text); }
+  .ds p { font-size: 10.5px; line-height: 1.4; color: var(--muted); min-height: 28px; flex: 1 1 auto; }
+  .ds-dl { display: inline-flex; align-items: center; gap: 5px; margin-top: 11px; padding-top: 9px;
+           border-top: 1px solid var(--line-2); font-size: 11px; color: var(--blue); text-align: left; }
+  .ds-dl .ic { width: 12px; height: 12px; }
+  .ds-dl:hover { color: var(--blue-2); text-decoration: underline; }
+
+  @media (max-width: 1240px) {
+    .ch-8 { grid-column: span 12; }
+    .ch-6 { grid-column: span 6; }
+    .ch-4 { grid-column: span 6; }
+    .dsg { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 1080px) {
+    .kpi4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .plot { height: 150px; }
+  }
+  @media (max-width: 980px) {
+    .ch-8, .ch-6, .ch-4 { grid-column: span 12; }
+  }
+  @media (max-width: 820px) {
+    .ch-6, .ch-4 { grid-column: span 12; }
+    .kpi4, .dsg { grid-template-columns: minmax(0, 1fr); }
+    .presets { margin-left: 0; }
+    .mix { flex-direction: column; align-items: flex-start; }
+    .donut { width: 130px; height: 130px; }
+    .brow { grid-template-columns: 88px minmax(0, 1fr) 30px; }
+  }
+</style>
+</head>
+<body data-nav="analytics" data-crumb="Intelligence" data-here="Data analytics">
+<div class="app">
+  <aside data-shell="rail"></aside>
+  <div class="shell">
+    <header data-shell="topbar"></header>
+
+    <div class="page">
+      <div class="page-head">
+        <div class="page-title">Data analytics</div>
+        <div class="page-tools">
+          <a class="btn sm" href="ontology.html">Ontology</a>
+          <button class="btn primary sm" type="button" id="dlAll"><svg class="ic"><use href="#i-download"/></svg>Download all</button>
+        </div>
+      </div>
+
+      <div class="body data-body">
+        <section class="panel" aria-label="Period">
+          <div class="period">
+            <div class="pf">
+              <label for="from">From</label>
+              <input class="input" type="date" id="from" value="2026-11-17">
+            </div>
+            <div class="pf">
+              <label for="to">To</label>
+              <input class="input" type="date" id="to" value="2026-11-17">
+            </div>
+            <div class="seg presets" role="group" aria-label="Period preset">
+              <button type="button" aria-pressed="true" data-preset="today">Today</button>
+              <button type="button" aria-pressed="false" data-preset="7d">Last 7 days</button>
+              <button type="button" aria-pressed="false" data-preset="month">This month</button>
+              <button type="button" aria-pressed="false" data-preset="last">Last month</button>
+              <button type="button" aria-pressed="false" data-preset="all">All time</button>
+            </div>
+          </div>
+          <div class="period-note" id="periodNote">1 day · Lagos dates</div>
+        </section>
+
+        <section class="kpi4" id="kpis" aria-label="Register totals"></section>
+
+        <div class="charts">
+          <section class="panel ch-8" aria-label="Records over the period">
+            <div class="panel-head"><h2>Records over time</h2><span class="cap" id="trendCap">hourly</span></div>
+            <div class="panel-body">
+              <div class="plot plot-fill" id="trend"></div>
+              <div class="xlabels" id="trendX"></div>
+              <div class="lgd" id="trendLgd"></div>
+            </div>
+          </section>
+
+          <section class="panel ch-4" aria-label="Record mix">
+            <div class="panel-head"><h2>Record mix</h2><span class="cap" id="mixCap">today</span></div>
+            <div class="panel-body">
+              <div class="mix">
+                <div class="donut">
+                  <svg viewBox="0 0 120 120" aria-hidden="true" id="donut"></svg>
+                  <div class="donut-mid"><b id="mixTotal">0</b><span>records</span></div>
+                </div>
+                <div class="mix-list" id="mixList"></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel ch-6" aria-label="Attendance rate">
+            <div class="panel-head"><h2>Attendance rate</h2><span class="cap" id="attCap">check-ins against 56 posts</span></div>
+            <div class="panel-body">
+              <div class="plot plot-fill" id="att"></div>
+              <div class="xlabels" id="attX"></div>
+            </div>
+          </section>
+
+          <section class="panel ch-6" aria-label="Coverage by site">
+            <div class="panel-head"><h2>Coverage by site</h2><span class="cap">today</span></div>
+            <div class="panel-body">
+              <div class="shead"><span>Site</span><span>Signed in</span><span>Attendance</span><span>Patrol</span></div>
+              <div id="siteRows"></div>
+            </div>
+          </section>
+
+          <section class="panel ch-4" aria-label="Incidents by severity">
+            <div class="panel-head"><h2>Incidents by severity</h2><span class="cap" id="incCap">0</span></div>
+            <div class="panel-body"><div class="rows" id="incRows"></div></div>
+          </section>
+
+          <section class="panel ch-4" aria-label="Alerts by severity">
+            <div class="panel-head"><h2>Alerts by severity</h2><span class="cap" id="alertCap">0</span></div>
+            <div class="panel-body"><div class="rows" id="alertRows"></div></div>
+          </section>
+
+          <section class="panel ch-4" aria-label="Posts filled by site">
+            <div class="panel-head"><h2>Posts filled</h2><span class="cap" id="postsCap">0</span></div>
+            <div class="panel-body"><div class="rows" id="postRows"></div></div>
+          </section>
+        </div>
+
+        <section class="dsg" id="datasets" aria-label="Downloadable registers"></section>
+      </div>
+
+      <footer data-shell="status"></footer>
+    </div>
+  </div>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/shell.js"></script>
+<script>
+(function () {
+  var B = window.B;
+  boardStore.apply();
+
+  var POSTS = B.meta.posts;
+  var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  /* Counts are the console's own day where the period is today, then
+     scale on the same daily rates, so no two screens disagree. */
+  var PRESETS = {
+    today: { from: '2026-11-17', to: '2026-11-17', cap: 'today',
+             c: { att: 53, inside: 48, out: 5, pat: 108, patDone: 96, inc: 5, incRes: 1, alerts: 13, acked: 8 } },
+    '7d':  { from: '2026-11-11', to: '2026-11-17', cap: 'last 7 days',
+             c: { att: 371, inside: 340, out: 31, pat: 756, patDone: 682, inc: 26, incRes: 19, alerts: 74, acked: 61 } },
+    month: { from: '2026-11-01', to: '2026-11-17', cap: 'November to date',
+             c: { att: 903, inside: 831, out: 72, pat: 1836, patDone: 1641, inc: 54, incRes: 44, alerts: 168, acked: 149 } },
+    last:  { from: '2026-10-01', to: '2026-10-30', cap: 'October',
+             c: { att: 1592, inside: 1474, out: 118, pat: 3240, patDone: 2934, inc: 96, incRes: 88, alerts: 212, acked: 198 } },
+    all:   { from: '2026-05-21', to: '2026-11-17', cap: 'since May',
+             c: { att: 9541, inside: 8837, out: 704, pat: 19440, patDone: 17604, inc: 512, incRes: 486, alerts: 1180, acked: 1132 } }
+  };
+
+  /* per-day rate, taken from November to date */
+  var RATE = { att: 53.1, out: 4.2, pat: 108, patDone: 96.5, inc: 3.2, incRes: 2.6, alerts: 9.9, acked: 8.8 };
+
+  var state = { preset: 'today', counts: PRESETS.today.c, from: PRESETS.today.from, to: PRESETS.today.to };
+
+  var DATASETS = [
+    { key: 'attendance', icon: 'clock', name: 'Attendance log', desc: 'Guard, site, check-in time and geofence result.', unit: 'records', count: 'att' },
+    { key: 'patrol', icon: 'route', name: 'Patrol log', desc: 'Guard, site, checkpoint and signed time.', unit: 'records', count: 'pat' },
+    { key: 'incidents', icon: 'alert', name: 'Incident register', desc: 'Title, site, severity, owner and timeline.', unit: 'records', count: 'inc' },
+    { key: 'alerts', icon: 'bell', name: 'Alerts', desc: 'Every alert raised, its rule and acknowledgement.', unit: 'records', count: 'alerts' },
+    { key: 'payroll', icon: 'wallet', name: 'Payroll', desc: 'Base pay, days present, deductions, net pay.', unit: 'officers', count: 59 },
+    { key: 'roster', icon: 'users', name: 'Guard roster', desc: 'Guard, site, post, phone and NFC tag.', unit: 'guards', count: 59 },
+    { key: 'sites', icon: 'pin', name: 'Sites', desc: 'Site, client, geofence and cover.', unit: 'sites', count: 8 },
+    { key: 'clients', icon: 'wallet', name: 'Clients', desc: 'Client, contract value, SLA and renewal.', unit: 'clients', count: 5 }
+  ];
+
+  function n(v) { return v.toLocaleString('en-GB'); }
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+  function parse(d) { var p = d.split('-'); return Date.UTC(+p[0], +p[1] - 1, +p[2]); }
+  function days(f, t) { return Math.max(1, Math.round((parse(t) - parse(f)) / 864e5) + 1); }
+  function fmt(d) { var p = d.split('-'); return (+p[2]) + ' ' + MONTHS[+p[1] - 1] + ' ' + p[0]; }
+  function pct(a, b) { return b ? Math.round((a / b) * 100) : 0; }
+
+  function customCounts(d) {
+    var att = Math.round(RATE.att * d);
+    var out = Math.round(RATE.out * d);
+    return {
+      att: att, inside: att - out, out: out,
+      pat: Math.round(RATE.pat * d), patDone: Math.round(RATE.patDone * d),
+      inc: Math.max(1, Math.round(RATE.inc * d)), incRes: Math.round(RATE.incRes * d),
+      alerts: Math.round(RATE.alerts * d), acked: Math.round(RATE.acked * d)
+    };
+  }
+
+  function countOf(ds) { return typeof ds.count === 'number' ? ds.count : state.counts[ds.count]; }
+
+  /* ---------- bucketing ---------- */
+  function shares(values) {
+    var s = values.reduce(function (a, b) { return a + b; }, 0) || 1;
+    return values.map(function (v) { return v / s; });
+  }
+  function spreadTo(total, shape) {
+    var out = shape.map(function (s) { return Math.round(total * s); });
+    var diff = total - out.reduce(function (a, b) { return a + b; }, 0);
+    var at = out.indexOf(Math.max.apply(null, out));
+    if (at < 0) at = out.length - 1;
+    out[at] += diff;
+    return out;
+  }
+
+  function buckets() {
+    var d = days(state.from, state.to);
+    var c = state.counts;
+    var t0 = parse(state.from);
+    var raw = [], labels = [], daysIn = [];
+
+    if (d === 1) return hourly(c);
+
+    var unit = d <= 31 ? 'day' : d <= 120 ? 'week' : 'month';
+    if (unit === 'day') {
+      for (var i = 0; i < d; i++) {
+        var dt = new Date(t0 + i * 864e5);
+        var dd = dt.getUTCDate(), mm = dt.getUTCMonth();
+        labels.push(dd + ' ' + MONTHS[mm]);
+        daysIn.push(1);
+      }
+    } else if (unit === 'week') {
+      for (var j = 0; j < d; j += 7) {
+        var w = new Date(t0 + j * 864e5);
+        labels.push('w/c ' + w.getUTCDate() + ' ' + MONTHS[w.getUTCMonth()]);
+        daysIn.push(Math.min(7, d - j));
+      }
+    } else {
+      var cursor = new Date(t0), last = '';
+      for (var k = 0; k < d; k++) {
+        var cur = new Date(t0 + k * 864e5);
+        var key = MONTHS[cur.getUTCMonth()];
+        if (key !== last) { labels.push(key); daysIn.push(0); last = key; }
+        daysIn[daysIn.length - 1] += 1;
+      }
+    }
+
+    var shape = shares(labels.map(function (_, i) {
+      return daysIn[i] * (1 + 0.03 * Math.sin(i * 1.7) - 0.015 * Math.cos(i * 0.9));
+    }));
+
+    return {
+      unit: unit,
+      labels: labels,
+      days: daysIn,
+      att: spreadTo(c.att, shape),
+      pat: spreadTo(c.pat, shape),
+      inc: spreadTo(c.inc, shape),
+      alerts: spreadTo(c.alerts, shape)
+    };
+  }
+
+  function hourly(c) {
+    var att = new Array(24).fill(0), pat = new Array(24).fill(0), inc = new Array(24).fill(0), al = new Array(24).fill(0);
+
+    B.roster.forEach(function (o) {
+      if (o.site === 'bench' || !o.time || o.time === '—') return;
+      att[+o.time.slice(0, 2)] += 1;
+    });
+    B.incidents.forEach(function (i) { inc[+i.t.slice(0, 2)] += 1; });
+    B.alerts.forEach(function (a) { al[+a.t.slice(0, 2)] += 1; });
+
+    /* patrols are signed hourly through the shift */
+    for (var h = 6; h < 14; h++) pat[h] = 1;
+
+    var labels = [];
+    for (var i = 0; i < 24; i++) labels.push((i < 10 ? '0' : '') + i);
+
+    function safe(arr) {
+      var sum = arr.reduce(function (a, b) { return a + b; }, 0);
+      if (sum) return shares(arr);
+      return arr.map(function () { return 1 / arr.length; });
+    }
+
+    return {
+      unit: 'hour', labels: labels, days: labels.map(function () { return 1; }),
+      att: spreadTo(c.att, safe(att)),
+      pat: spreadTo(c.pat, safe(pat)),
+      inc: spreadTo(c.inc, safe(inc)),
+      alerts: spreadTo(c.alerts, safe(al))
+    };
+  }
+
+  /* ---------- trend ---------- */
+  var SERIES = [
+    { key: 'att', name: 'Check-ins', cls: 's1' },
+    { key: 'pat', name: 'Patrol reads', cls: 's2' },
+    { key: 'inc', name: 'Incidents', cls: 's3' },
+    { key: 'alerts', name: 'Alerts', cls: 's4' }
+  ];
+
+  function renderTrend(b) {
+    var totals = b.labels.map(function (_, i) {
+      return SERIES.reduce(function (a, s) { return a + b[s.key][i]; }, 0);
+    });
+    var max = Math.max.apply(null, totals) || 1;
+    var showVals = b.labels.length <= 12;
+
+    document.getElementById('trendCap').textContent =
+      b.unit === 'hour' ? 'by hour · ' + fmt(state.from) : 'by ' + b.unit + ' · ' + b.labels.length + ' ' + b.unit + (b.labels.length > 1 ? 's' : '');
+
+    document.getElementById('trend').style.gridTemplateColumns = 'repeat(' + b.labels.length + ', minmax(0, 1fr))';
+    document.getElementById('trend').innerHTML = b.labels.map(function (lab, i) {
+      if (!totals[i]) return '<div class="bcol"></div>';
+      var h = Math.max(2, (totals[i] / max) * 100);
+      var segs = SERIES.slice().reverse().map(function (s) {
+        var v = b[s.key][i];
+        return v ? '<i class="' + s.cls + '" style="flex:' + v + ' 1 0px"></i>' : '';
+      }).join('');
+      return '<div class="bcol" title="' + lab + ' · ' + n(totals[i]) + ' records">' +
+        (showVals ? '<b class="cv">' + n(totals[i]) + '</b>' : '') +
+        '<div class="bar" style="height:' + h.toFixed(1) + '%">' + segs + '</div></div>';
+    }).join('');
+
+    var every = Math.ceil(b.labels.length / 8);
+    document.getElementById('trendX').style.gridTemplateColumns = 'repeat(' + b.labels.length + ', minmax(0, 1fr))';
+    document.getElementById('trendX').innerHTML = b.labels.map(function (lab, i) {
+      return '<span>' + (i % every === 0 ? lab : '') + '</span>';
+    }).join('');
+
+    document.getElementById('trendLgd').innerHTML = SERIES.map(function (s) {
+      var t = b[s.key].reduce(function (a, v) { return a + v; }, 0);
+      return '<span><i class="' + s.cls + '"></i>' + s.name + ' <b>' + n(t) + '</b></span>';
+    }).join('');
+  }
+
+  /* ---------- record mix ---------- */
+  var MIX = [
+    { key: 'att', name: 'Check-ins', cls: 's1', hex: '#12395c' },
+    { key: 'pat', name: 'Patrol reads', cls: 's2', hex: '#2b5880' },
+    { key: 'inc', name: 'Incidents', cls: 's3', hex: '#6288a6' },
+    { key: 'alerts', name: 'Alerts', cls: 's4', hex: '#c2cad2' }
+  ];
+
+  function renderMix() {
+    var c = state.counts;
+    var total = MIX.reduce(function (a, m) { return a + c[m.key]; }, 0) || 1;
+    var R = 52, C = 2 * Math.PI * R, off = 0;
+    var arcs = MIX.map(function (m) {
+      var len = (c[m.key] / total) * C;
+      var seg = '<circle cx="60" cy="60" r="' + R + '" fill="none" stroke="' + m.hex + '" stroke-width="17"' +
+        ' stroke-dasharray="' + len.toFixed(2) + ' ' + (C - len).toFixed(2) + '"' +
+        ' stroke-dashoffset="' + (-off).toFixed(2) + '"/>';
+      off += len;
+      return seg;
+    }).join('');
+    document.getElementById('donut').innerHTML = '<g transform="rotate(-90 60 60)">' + arcs + '</g>';
+    document.getElementById('mixTotal').textContent = n(total);
+    document.getElementById('mixCap').textContent = state.preset === 'custom' ? 'selected dates' : PRESETS[state.preset].cap;
+    document.getElementById('mixList').innerHTML = MIX.map(function (m) {
+      return '<div class="mix-row"><i class="' + m.cls + '"></i><span>' + m.name + '</span>' +
+        '<b>' + n(c[m.key]) + '</b><em>' + Math.round((c[m.key] / total) * 100) + '%</em></div>';
+    }).join('');
+  }
+
+  /* ---------- attendance rate ---------- */
+  /* An hourly rate for one day is noise, so a single-day period shows the
+     seven days ending on that date instead. The caption names the window. */
+  function attWindow(b) {
+    if (b.unit !== 'hour') {
+      document.getElementById('attCap').textContent = 'check-ins against ' + n(POSTS) + ' posts · target 95%';
+      return b;
+    }
+    var to = parse(state.to), labels = [], base = [];
+    for (var i = 6; i >= 0; i--) {
+      var d = new Date(to - i * 864e5);
+      labels.push(d.getUTCDate() + ' ' + MONTHS[d.getUTCMonth()]);
+      base.push(1 + 0.2 * Math.sin(i * 1.9));
+    }
+    document.getElementById('attCap').textContent = 'last 7 days · target 95%';
+    return {
+      labels: labels,
+      days: labels.map(function () { return 1; }),
+      att: spreadTo(Math.round(RATE.att * 7), shares(base))
+    };
+  }
+
+  function renderAttendance(b) {
+    var w = attWindow(b);
+    var rates = w.labels.map(function (_, i) {
+      return Math.min(100, pct(w.att[i], POSTS * (w.days[i] || 1)));
+    });
+    var showVals = w.labels.length <= 12;
+    var el = document.getElementById('att');
+    el.style.gridTemplateColumns = 'repeat(' + rates.length + ', minmax(0, 1fr))';
+    var TOP = 120; /* headroom above 100 so the value labels clear the target line */
+    el.innerHTML = '<div class="tline" style="bottom:' + (95 / TOP) * 100 + '%"></div>' +
+      rates.map(function (r, i) {
+        return '<div class="bcol" title="' + w.labels[i] + ' · ' + r + '%">' +
+          (showVals ? '<b class="cv">' + r + '</b>' : '') +
+          '<div class="bar" style="height:' + Math.max(2, (r / TOP) * 100) + '%"><i class="s1" style="flex:1 1 0px"></i></div></div>';
+      }).join('');
+
+    var every = Math.ceil(w.labels.length / 8);
+    var x = document.getElementById('attX');
+    x.style.gridTemplateColumns = 'repeat(' + rates.length + ', minmax(0, 1fr))';
+    x.innerHTML = w.labels.map(function (lab, i) { return '<span>' + (i % every === 0 ? lab : '') + '</span>'; }).join('');
+  }
+
+  /* ---------- site coverage ---------- */
+  function siteStats() {
+    return B.sites.map(function (s) {
+      var crew = B.roster.filter(function (o) { return o.site === s.key; });
+      var inNow = crew.filter(function (o) { return o.time && o.time !== '—'; }).length;
+      return { s: s, inNow: inNow, crew: crew.length };
+    }).sort(function (a, b) { return pct(a.inNow, a.s.posts) - pct(b.inNow, b.s.posts); });
+  }
+
+  function renderSites() {
+    document.getElementById('siteRows').innerHTML = siteStats().map(function (r) {
+      var att = pct(r.inNow, r.s.posts);
+      return '<div class="srow">' +
+        '<span class="sn" title="' + esc(r.s.name) + '">' + esc(r.s.name) + '</span>' +
+        '<span class="sm">' + r.inNow + '/' + r.s.posts + '</span>' +
+        '<div class="barcell"><div class="track"><i style="width:' + att + '%"></i></div><span class="sm">' + att + '%</span></div>' +
+        '<div class="barcell"><div class="track t2"><i style="width:' + r.s.patrols + '%"></i></div><span class="sm">' + r.s.patrols + '%</span></div>' +
+        '</div>';
+    }).join('');
+  }
+
+  /* ---------- severity ---------- */
+  function severityMix(list, total) {
+    var order = ['Critical', 'High', 'Medium', 'Low'];
+    var counts = order.map(function (sev) {
+      return list.filter(function (x) { return x.sev === sev; }).length;
+    });
+    var sum = counts.reduce(function (a, b) { return a + b; }, 0) || 1;
+    return order.map(function (sev, i) {
+      return { name: sev, v: Math.round((counts[i] / sum) * total), share: counts[i] / sum };
+    });
+  }
+
+  function barRows(el, items, total, tones) {
+    var max = Math.max.apply(null, items.map(function (i) { return i.v; })) || 1;
+    el.innerHTML = items.map(function (i, ix) {
+      return '<div class="brow"><span class="bn">' + i.name + '</span>' +
+        '<div class="track ' + (tones[ix] || '') + '"><i style="width:' + Math.max(2, (i.v / max) * 100) + '%"></i></div>' +
+        '<span class="bv">' + n(i.v) + '</span></div>';
+    }).join('');
+    return total;
+  }
+
+  function renderSeverities() {
+    var c = state.counts;
+    var inc = severityMix(B.incidents, c.inc);
+    var al = severityMix(B.alerts, c.alerts);
+    document.getElementById('incCap').textContent = n(c.inc) + ' in period';
+    document.getElementById('alertCap').textContent = n(c.alerts) + ' in period';
+    barRows(document.getElementById('incRows'), inc, c.inc, ['t3', '', 't2', 't2']);
+    barRows(document.getElementById('alertRows'), al, c.alerts, ['t3', '', 't2', 't2']);
+  }
+
+  /* ---------- posts ---------- */
+  function renderPosts() {
+    var rows = siteStats().slice().sort(function (a, b) { return (b.s.posts - b.inNow) - (a.s.posts - a.inNow); });
+    var open = rows.reduce(function (a, r) { return a + (r.s.posts - r.inNow); }, 0);
+    document.getElementById('postsCap').textContent = open + ' open';
+    document.getElementById('postRows').innerHTML = rows.map(function (r) {
+      var filled = pct(r.inNow, r.s.posts);
+      return '<div class="brow"><span class="bn" title="' + esc(r.s.name) + '">' + esc(r.s.name) + '</span>' +
+        '<div class="track"><i style="width:' + Math.max(2, filled) + '%"></i></div>' +
+        '<span class="bv">' + r.inNow + '/' + r.s.posts + '</span></div>';
+    }).join('');
+  }
+
+  /* ---------- register totals ---------- */
+  function splitBar(a, b, aLabel, bLabel, aVal, bVal) {
+    var total = a + b || 1;
+    var pa = (a / total) * 100;
+    return '<div class="split"><i class="a" style="width:' + pa.toFixed(1) + '%"></i><i class="b" style="width:' + (100 - pa).toFixed(1) + '%"></i></div>' +
+      '<div class="dc-legend">' +
+        '<span><i class="sw a"></i>' + aLabel + ' <b>' + n(aVal) + '</b></span>' +
+        '<span><i class="sw b"></i>' + bLabel + ' <b>' + n(bVal) + '</b></span>' +
+      '</div>';
+  }
+
+  function renderKpis() {
+    var c = state.counts;
+    var rows = [
+      { icon: 'clock', label: 'Attendance', val: c.att,
+        bar: splitBar(c.inside, c.att - c.inside, 'Inside geofence', 'Outside', c.inside, c.att - c.inside) },
+      { icon: 'route', label: 'Patrol completion', val: c.pat,
+        bar: splitBar(c.patDone, c.pat - c.patDone, 'Signed', 'Not signed', c.patDone, c.pat - c.patDone) },
+      { icon: 'alert', label: 'Incidents', val: c.inc,
+        bar: splitBar(c.incRes, c.inc - c.incRes, 'Resolved', 'Open', c.incRes, c.inc - c.incRes) },
+      { icon: 'bell', label: 'Alerts', val: c.alerts,
+        bar: splitBar(c.acked, c.alerts - c.acked, 'Acknowledged', 'Open', c.acked, c.alerts - c.acked) }
+    ];
+    document.getElementById('kpis').innerHTML = rows.map(function (r) {
+      return '<article class="dcard">' +
+        '<div class="dc-top"><span class="dc-ic">' + icon(r.icon) + '</span>' +
+          '<span class="dc-count">' + n(r.val) + '</span></div>' +
+        '<h3>' + r.label + '</h3>' + r.bar +
+      '</article>';
+    }).join('');
+  }
+
+  function renderDatasets() {
+    document.getElementById('datasets').innerHTML = DATASETS.map(function (d) {
+      return '<article class="ds">' +
+        '<div class="ds-top"><span class="dc-ic">' + icon(d.icon) + '</span><span class="ds-count">' + n(countOf(d)) + ' ' + d.unit + '</span></div>' +
+        '<h3>' + d.name + '</h3><p>' + d.desc + '</p>' +
+        '<button class="ds-dl" type="button" data-ds="' + d.key + '">' + icon('download') + 'Download CSV</button>' +
+      '</article>';
+    }).join('');
+  }
+
+  function renderPeriod() {
+    document.getElementById('from').value = state.from;
+    document.getElementById('to').value = state.to;
+    var d = days(state.from, state.to);
+    var range = state.from === state.to ? fmt(state.from) : fmt(state.from) + ' – ' + fmt(state.to);
+    document.getElementById('periodNote').textContent =
+      'Showing ' + range + ' · ' + d + (d === 1 ? ' day' : ' days') + ' · Lagos dates';
+    document.querySelectorAll('[data-preset]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.getAttribute('data-preset') === state.preset));
+    });
+  }
+
+  function render() {
+    var b = buckets();
+    renderPeriod();
+    renderKpis();
+    renderTrend(b);
+    renderMix();
+    renderAttendance(b);
+    renderSites();
+    renderSeverities();
+    renderPosts();
+    renderDatasets();
+  }
+
+  /* ---------- csv ---------- */
+  var REGISTERS = {
+    attendance: { head: ['Guard', 'Guard ID', 'Site', 'Check-in', 'Geofence'],
+      rows: function () {
+        return B.roster.filter(function (o) { return o.site !== 'bench'; }).map(function (o) {
+          var s = B.site(o.site);
+          return [o.name, o.id, s ? s.name : '', o.time, o.time === '—' ? 'Not in' : 'Inside'];
+        });
+      } },
+    patrol: { head: ['Guard', 'Site', 'Post', 'Checkpoint', 'Signed'],
+      rows: function () {
+        return B.roster.filter(function (o) { return o.site !== 'bench'; }).map(function (o) {
+          var s = B.site(o.site);
+          return [o.name, s ? s.name : '', o.post, 'CP-01', o.time];
+        });
+      } },
+    incidents: { head: ['ID', 'Site', 'Severity', 'Status', 'Owner'],
+      rows: function () {
+        return [['INC-2415', 'Cedar Mall', 'Critical', 'Open', 'Day supervisor'],
+                ['INC-2412', 'Trade Centre', 'High', 'Open', 'Ops desk'],
+                ['INC-2409', 'Archive Annex', 'High', 'Open', 'Ops desk'],
+                ['INC-2404', 'Apapa Terminal 2', 'Medium', 'Resolved', 'Day supervisor'],
+                ['INC-2402', 'Admiralty Estate', 'Medium', 'Open', 'Relief'],
+                ['INC-2398', 'Apapa Terminal 2', 'Medium', 'Resolved', 'Relief']];
+      } },
+    alerts: { head: ['ID', 'Time', 'Site', 'Rule', 'State'],
+      rows: function () {
+        return B.alerts.map(function (a) { var s = B.site(a.site); return [a.id, a.t, s ? s.name : '', a.rule, a.state]; });
+      } },
+    payroll: { head: ['Officer', 'Guard ID', 'Site', 'Gross', 'Days', 'Deduction', 'Net'],
+      rows: function () {
+        return B.roster.map(function (o, i) {
+          var gross = 168000 + (i % 5) * 21000;
+          return [o.name, o.id, o.site, gross, 22 - (i % 4), (i % 4) * 5400, gross - (i % 4) * 5400];
+        });
+      } },
+    roster: { head: ['Guard', 'Guard ID', 'Site', 'Post', 'Phone', 'Employment', 'NFC tag'],
+      rows: function () {
+        return B.roster.map(function (o) { var s = B.site(o.site); return [o.name, o.code || o.id.slice(-3), s ? s.name : 'Dormant', o.post, o.phone, o.emp === 'suspended' ? 'Suspended' : 'Active', o.tag || 'Not issued']; });
+      } },
+    sites: { head: ['Site', 'Area', 'Client', 'Posts', 'Patrol %', 'Geofence', 'State'],
+      rows: function () { return B.sites.map(function (s) { return [s.name, s.area, s.client, s.posts, s.patrols, s.geo, s.state]; }); } },
+    clients: { head: ['Client', 'Sites', 'Contract', 'SLA', 'Renewal'],
+      rows: function () {
+        return [['Apapa Ports Ltd', 'Apapa Terminal 2', 11800000, '97%', 'Apr 2027'],
+                ['Cedar Retail Group', 'Cedar Mall', 6400000, '91%', 'Feb 2027'],
+                ['Civic Tower Facilities', 'Civic Tower', 5900000, '99%', 'Aug 2027'],
+                ['LTC Holdings', 'Trade Centre', 5100000, '94%', 'Jan 2027'],
+                ['Admiralty Heights', 'Admiralty Estate', 3800000, '88%', 'Jun 2027']];
+      } }
+  };
+
+  function csv(rows) {
+    return rows.map(function (r) {
+      return r.map(function (v) { var s = String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }).join(',');
+    }).join('\r\n');
+  }
+
+  function save(name, text) {
+    var blob = new Blob([text], { type: 'text/csv;charset=utf-8' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+  }
+
+  function stamp() { return state.from + '_' + state.to; }
+
+  document.addEventListener('click', function (e) {
+    var dl = e.target.closest('[data-ds]');
+    if (!dl) return;
+    var key = dl.getAttribute('data-ds');
+    var reg = REGISTERS[key];
+    save('bastion-' + key + '-' + stamp() + '.csv', csv([reg.head].concat(reg.rows())));
+    toast(key.charAt(0).toUpperCase() + key.slice(1) + ' exported', 'download');
+  });
+
+  document.getElementById('dlAll').addEventListener('click', function () {
+    var c = state.counts;
+    var rows = [['Register', 'Records'], ['Attendance', c.att], ['Patrol reads', c.pat], ['Incidents', c.inc], ['Alerts', c.alerts]]
+      .concat(DATASETS.slice(4).map(function (d) { return [d.name, countOf(d)]; }))
+      .concat([['Period', state.from + ' to ' + state.to]]);
+    save('bastion-data-' + stamp() + '.csv', csv(rows));
+    toast('Period summary exported', 'download');
+  });
+
+  document.querySelectorAll('[data-preset]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var p = b.getAttribute('data-preset');
+      state.preset = p;
+      state.from = PRESETS[p].from;
+      state.to = PRESETS[p].to;
+      state.counts = PRESETS[p].c;
+      render();
+    });
+  });
+
+  ['from', 'to'].forEach(function (id) {
+    document.getElementById(id).addEventListener('change', function () {
+      var f = document.getElementById('from').value;
+      var t = document.getElementById('to').value;
+      if (!f || !t) return;
+      if (parse(f) > parse(t)) { var tmp = f; f = t; t = tmp; document.getElementById('from').value = f; document.getElementById('to').value = t; }
+      state.from = f; state.to = t; state.preset = 'custom';
+      state.counts = customCounts(days(f, t));
+      render();
+    });
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

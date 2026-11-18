@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Expenses · Bastion OS</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="css/console.css">
+<script src="js/splash.js"></script>
+<link rel="stylesheet" href="css/pages.css">
+<link rel="stylesheet" href="css/fin.css">
+</head>
+<body data-nav="expenses" data-crumb="Finances">
+<div class="app">
+  <aside data-shell="rail"></aside>
+  <div class="shell">
+    <header data-shell="topbar"></header>
+
+    <div class="page">
+      <div class="page-head">
+        <div class="page-title">Expenses <span class="id">NOV · FY26</span></div>
+        <div class="page-tools">
+          <label class="field" style="min-width:230px">
+            <svg class="ic"><use href="#i-search"/></svg>
+            <input type="text" id="q" placeholder="Find a cost, site or reference" aria-label="Search expenses">
+          </label>
+          <button class="btn sm" type="button" id="exportBtn"><svg class="ic"><use href="#i-download"/></svg>Export</button>
+        </div>
+      </div>
+
+      <div class="body fin-body">
+        <section class="kpis" aria-label="Bought-in costs">
+          <div class="kpi"><div class="k-label"><span class="micro">Bought in this month</span></div><div class="k-val" id="kTotal">—</div><div class="k-sub" id="kCount"></div></div>
+          <div class="kpi"><div class="k-label"><span class="micro">Already paid</span></div><div class="k-val" id="kPaid">—</div><div class="k-sub" id="kPaidSub"></div></div>
+          <div class="kpi flag"><div class="k-label"><span class="micro">Waiting to be paid</span></div><div class="k-val" id="kOpen">—</div><div class="k-sub" id="kOpenSub"></div></div>
+          <div class="kpi"><div class="k-label"><span class="micro">Biggest line</span></div><div class="k-val" id="kBig">—</div><div class="k-sub" id="kBigSub"></div></div>
+          <div class="kpi"><div class="k-label"><span class="micro">Cost lines used</span></div><div class="k-val" id="kCats">—</div><div class="k-sub">fuel leads this month</div></div>
+        </section>
+
+        <section class="fin-charts" id="charts" aria-label="Spending charts"></section>
+
+        <div class="fin-main">
+          <section class="panel table-panel">
+            <div class="panel-head"><h2>What we paid for</h2><span class="cap" id="expCount"></span></div>
+            <div class="wrap-scroll">
+              <table class="tbl">
+                <thead><tr><th>Date</th><th>What it was</th><th>Where</th><th class="n">Amount</th><th>Status</th><th></th></tr></thead>
+                <tbody id="expRows"></tbody>
+              </table>
+              <div class="empty" id="expEmpty" hidden><strong>No cost matches</strong>Clear the search to see all seven.</div>
+            </div>
+            <div class="panel-foot" id="expFoot"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head"><h2>Waiting to be paid</h2><span class="cap">approved</span></div>
+            <div class="panel-body" id="expSide"></div>
+            <div class="panel-foot" id="expSideFoot"></div>
+          </section>
+        </div>
+      </div>
+
+      <footer data-shell="status"></footer>
+    </div>
+  </div>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/fin.js"></script>
+<script src="js/shell.js"></script>
+<script>
+(function () {
+  boardStore.apply();
+  var $ = function (id) { return document.getElementById(id); };
+  var q = '';
+
+  function hits(r) {
+    return !q || (r.ref + ' ' + r.what + ' ' + r.where + ' ' + r.cat + ' ' + r.state).toLowerCase().indexOf(q) > -1;
+  }
+
+  function paintKpis() {
+    var t = FIN.expenseTotals();
+    var paid = t.all - t.open;
+    var big = FIN.expenses.slice().sort(function (a, b) { return b.amount - a.amount; })[0];
+    var cats = {};
+    FIN.expenses.forEach(function (r) { cats[r.cat] = (cats[r.cat] || 0) + r.amount; });
+    $('kTotal').innerHTML = (t.all / 1e6).toFixed(2) + '<small>m</small>';
+    $('kCount').textContent = t.count + ' records · wages run on Payroll';
+    $('kPaid').innerHTML = (paid / 1e6).toFixed(2) + '<small>m</small>';
+    $('kPaidSub').textContent = Math.round(paid / t.all * 100) + '% settled';
+    $('kOpen').innerHTML = (t.open / 1e6).toFixed(2) + '<small>m</small>';
+    $('kOpenSub').textContent = t.openCount + ' approved, not yet paid';
+    $('kBig').innerHTML = (big.amount / 1e6).toFixed(2) + '<small>m</small>';
+    $('kBigSub').textContent = big.what;
+    $('kCats').textContent = Object.keys(cats).length;
+    var lead = Object.keys(cats).sort(function (a, b) { return cats[b] - cats[a]; })[0];
+    $('kCats').nextElementSibling.textContent = lead + ' leads this month';
+  }
+
+  function paintCharts() {
+    var cats = {};
+    FIN.expenses.forEach(function (r) { cats[r.cat] = (cats[r.cat] || 0) + r.amount; });
+    var catRows = Object.keys(cats).map(function (k) { return [k, cats[k]]; })
+      .sort(function (a, b) { return b[1] - a[1]; });
+    var total = catRows.reduce(function (a, r) { return a + r[1]; }, 0);
+
+    var weeks = [
+      { x: '1–7', min: 1, max: 7 }, { x: '8–14', min: 8, max: 14 },
+      { x: '15–21', min: 15, max: 21 }, { x: '22–30', min: 22, max: 30 }
+    ].map(function (w) {
+      var sum = FIN.expenses.filter(function (r) {
+        var d = parseInt(r.day, 10);
+        return d >= w.min && d <= w.max;
+      }).reduce(function (a, r) { return a + r.amount; }, 0);
+      return { x: w.x, a: sum / 1e5, cap: (sum / 1e6).toFixed(2) };
+    });
+    var weekMax = Math.max.apply(null, weeks.map(function (w) { return w.a; })) || 1;
+
+    var byWhere = {};
+    FIN.expenses.forEach(function (r) { byWhere[r.where] = (byWhere[r.where] || 0) + r.amount; });
+    var places = Object.keys(byWhere).map(function (k) { return [k, byWhere[k]]; })
+      .sort(function (a, b) { return b[1] - a[1]; }).slice(0, 6);
+
+    $('charts').innerHTML = [
+      FIN.chartCard('What it went on', FIN.mm(total / 1e6),
+        FIN.donut(catRows.map(function (c) { return [c[0], c[1], FIN.mm(c[1] / 1e6)]; }),
+          (total / 1e6).toFixed(2), 'spent'),
+        catRows.length + ' categories, November'),
+      FIN.chartCard('Spend by week', '₦m',
+        FIN.cols(weeks, weekMax),
+        'Four weeks · 1–30 November'),
+      FIN.chartCard('Where it was spent', places.length + ' places',
+        FIN.bars(places.map(function (p) { return [p[0], p[1], FIN.mm(p[1] / 1e6)]; })),
+        'Top six of ' + Object.keys(byWhere).length)
+    ].join('');
+  }
+
+  function paintRows() {
+    var rows = FIN.expenses.filter(hits);
+    $('expRows').innerHTML = rows.map(function (r) {
+      var open = r.state === 'Approved';
+      return '<tr>' +
+        '<td class="dim">' + r.day + '</td>' +
+        '<td class="name">' + r.what + '</td>' +
+        '<td>' + r.where + '</td>' +
+        '<td class="n">' + FIN.money(-r.amount) + '</td>' +
+        '<td>' + FIN.chip(r.state) + '</td>' +
+        '<td><div class="rowacts">' + (open ? '<button class="btn xs" type="button" data-act="payCost" data-ref="' + r.ref + '">Mark paid</button>' : '') + '</div></td>' +
+        '</tr>';
+    }).join('');
+    $('expEmpty').hidden = rows.length > 0;
+
+    var t = FIN.expenseTotals();
+    $('expCount').textContent = rows.length === t.count ? t.count + ' records' : rows.length + ' of ' + t.count;
+    $('expFoot').textContent = FIN.mm(t.all / 1e6) + ' this month · ' + FIN.mm(t.open / 1e6) + ' still to pay';
+  }
+
+  function paintSide() {
+    var openRows = FIN.expenses.filter(function (r) { return r.state === 'Approved'; });
+    var open = openRows.reduce(function (a, r) { return a + r.amount; }, 0);
+    var recent = FIN.expenses.filter(function (r) { return r.state === 'Paid'; })
+      .sort(function (a, b) { return parseInt(b.day, 10) - parseInt(a.day, 10); }).slice(0, 3);
+
+    $('expSide').innerHTML =
+      (openRows.length
+        ? openRows.map(function (r) {
+          return '<div class="side-kv" style="padding:8px 0"><span><b style="display:block;font:500 11.5px/1.2 var(--ui);color:var(--text)">' + r.what + '</b>' +
+            '<span class="hint">' + r.ref + ' · ' + r.where + ' · ' + r.day + '</span></span>' +
+            '<span class="rowacts"><button class="btn xs" type="button" data-act="payCost" data-ref="' + r.ref + '">Pay</button></span></div>';
+        }).join('')
+        : '<div class="empty" style="padding:16px 2px"><strong>Nothing waiting</strong>Every approved cost has been paid.</div>') +
+      '<div class="micro" style="margin:14px 0 2px">Recently paid</div>' +
+      recent.map(function (r) {
+        return '<div class="side-kv"><span>' + r.what + '<span class="hint"> · ' + r.day + '</span></span><b>' + FIN.ngn(r.amount) + '</b></div>';
+      }).join('');
+    $('expSideFoot').innerHTML = '<span>' + openRows.length + ' approved</span><span class="right">' + FIN.ngn(open) + '</span>';
+  }
+
+  function paint() { paintKpis(); paintCharts(); paintRows(); paintSide(); }
+
+  $('q').addEventListener('input', function (e) {
+    q = e.target.value.trim().toLowerCase();
+    paintRows();
+  });
+  $('exportBtn').addEventListener('click', function () { toast('Expense ledger exported to CSV', 'download'); });
+
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-act="payCost"]');
+    if (!b) return;
+    var ref = b.getAttribute('data-ref');
+    FIN.expenses.some(function (r) { if (r.ref === ref) { r.state = 'Paid'; return true; } return false; });
+    paint();
+    toast(ref + ' marked paid', 'check');
+  });
+
+  paint();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Settings · Bastion OS</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="css/console.css">
+<script src="js/splash.js"></script>
+<link rel="stylesheet" href="css/pages.css">
+<style>
+  .set-body { display: flex; flex-direction: column; gap: 10px; }
+  .set-main { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 10px; }
+  .set-nav { display: flex; flex-direction: column; min-height: 0; }
+  .set-nav button { display: flex; align-items: center; gap: 7px; width: 100%; text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line-2); font-size: 12px; color: var(--text-2); border-left: 3px solid transparent; }
+  .set-nav button:hover { background: #f8f8f8; color: var(--text); }
+  .set-nav button[aria-current="true"] { background: #efefef; border-left-color: var(--blue); color: var(--text); font-weight: 600; }
+  .set-nav .ic { color: var(--muted); }
+  .set-panel { min-height: 0; overflow: auto; }
+  .sect { display: none; }
+  .sect.on { display: flex; flex-direction: column; min-height: 100%; }
+  .sect-head { padding: 12px 14px; border-bottom: 1px solid var(--line); background: var(--panel-2); }
+  .sect-head h2 { font: 600 13px/1.2 var(--ui); color: var(--text); }
+  .sect-head p { font-size: 11px; color: var(--muted); margin-top: 3px; max-width: 560px; }
+  .sect-body { padding: 13px 14px; }
+  .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px 14px; max-width: 720px; }
+  .form-grid .wide { grid-column: 1 / -1; }
+  .form-grid .form-row > label { font-size: 9px; }
+  .toggle-row { display: flex; align-items: flex-start; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--line-2); max-width: 720px; }
+  .toggle-row:last-child { border-bottom: 0; }
+  .toggle-row .t-main { flex: 1 1 auto; min-width: 0; }
+  .toggle-row .t-name { font-size: 11.5px; color: var(--text); }
+  .toggle-row .t-desc { font-size: 10.5px; color: var(--muted); margin-top: 2px; line-height: 1.45; }
+  .save-row { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--line); background: var(--panel-2); margin-top: auto; }
+  .matrix { width: 100%; font-size: 11px; }
+  .matrix th { text-align: left; font: 600 8.5px/1 var(--ui); letter-spacing: .07em; text-transform: uppercase; color: var(--muted); padding: 5px 6px; border-bottom: 1px solid var(--line); }
+  .matrix td { padding: 5px 6px; border-bottom: 1px solid var(--line-2); }
+  .matrix td.c { text-align: center; }
+  .yes { color: var(--green); font-weight: 700; }
+  .no { color: #cbcbcb; }
+  .device-row { display: flex; align-items: center; gap: 9px; padding: 8px 0; border-bottom: 1px solid var(--line-2); }
+  .device-row .d-main { flex: 1 1 auto; }
+  .device-row .d-name { font-size: 11.5px; color: var(--text); }
+  .device-row .d-meta { font: 500 9px/1.4 var(--mono); color: var(--faint); margin-top: 2px; }
+  .avatar.lgx { width: 30px; height: 30px; font-size: 11px; }
+</style>
+</head>
+<body data-nav="settings" data-crumb="Workspace" data-here="Settings">
+<div class="app">
+  <aside data-shell="rail"></aside>
+  <div class="shell">
+    <header data-shell="topbar"></header>
+
+    <div class="page">
+      <div class="page-head">
+        <div class="page-title">Settings</div>
+        <div class="page-tools">
+          <span class="pill-site">Workspace admin · Tolu Adeyemi</span>
+        </div>
+      </div>
+
+      <div class="body set-body">
+        <div class="set-main">
+          <section class="panel set-nav" role="navigation" aria-label="Settings sections">
+            <div class="panel-head"><h2>Sections</h2></div>
+            <button type="button" data-s="org" aria-current="true"><svg class="ic"><use href="#i-shield"/></svg>Organisation</button>
+            <button type="button" data-s="ops"><svg class="ic"><use href="#i-target"/></svg>Operations</button>
+            <button type="button" data-s="guard"><svg class="ic"><use href="#i-phone"/></svg>Guard app</button>
+            <button type="button" data-s="finance"><svg class="ic"><use href="#i-wallet"/></svg>Finances</button>
+            <button type="button" data-s="intel"><svg class="ic"><use href="#i-spark"/></svg>Intelligence</button>
+            <button type="button" data-s="team"><svg class="ic"><use href="#i-users"/></svg>Team &amp; roles</button>
+            <button type="button" data-s="account"><svg class="ic"><use href="#i-user"/></svg>Account</button>
+            <button type="button" data-s="licence"><svg class="ic"><use href="#i-lock"/></svg>Licence</button>
+            <button type="button" data-s="devices"><svg class="ic"><use href="#i-phone"/></svg>Devices</button>
+          </section>
+
+          <section class="panel set-panel">
+            <!-- ORGANISATION -->
+            <div class="sect on" data-sect="org">
+              <div class="sect-head"><h2>Organisation</h2><p>Used on client reports and the guard app.</p></div>
+              <div class="sect-body">
+                <div class="hstack" style="gap:12px;margin-bottom:16px">
+                  <span class="avatar lgx" style="width:46px;height:46px;font-size:15px;background:var(--blue);color:#ffffff;border-color:var(--blue)">SS</span>
+                  <div>
+                    <div style="font-size:12px;font-weight:600">Spectra Security Ltd</div>
+                    <div class="hint">PNG or SVG · 240 × 240 recommended</div>
+                  </div>
+                  <button class="btn sm" type="button" style="margin-left:8px" data-toast="Logo upload opens a file picker">Replace logo</button>
+                </div>
+                <div class="form-grid">
+                  <div class="form-row"><label for="oName">Legal name</label><input class="input" id="oName" value="Spectra Security Ltd"></div>
+                  <div class="form-row"><label for="oTrade">Trading name</label><input class="input" id="oTrade" value="Spectra Security"></div>
+                  <div class="form-row"><label for="oTz">Timezone</label><select class="select" id="oTz"><option>Africa/Lagos (WAT)</option><option>Africa/Accra (GMT)</option><option>Europe/London (GMT)</option></select></div>
+                  <div class="form-row"><label for="oCur">Currency</label><select class="select" id="oCur"><option>Nigerian naira (₦)</option><option>US dollar ($)</option><option>Pound sterling (£)</option></select></div>
+                  <div class="form-row wide"><label for="oAddr">Registered address</label><input class="input" id="oAddr" value="14 Adeola Odeku Street, Victoria Island, Lagos"></div>
+                  <div class="form-row"><label for="oReg">Registration number</label><input class="input" id="oReg" value="RC 1184022"></div>
+                  <div class="form-row"><label for="oTax">Tax ID</label><input class="input" id="oTax" value="TIN 20941877-0001"></div>
+                </div>
+              </div>
+              <div class="save-row"><button class="btn primary sm" type="button" data-toast="Organisation settings saved">Save changes</button><span class="hint">Last changed 4 Nov by Tolu Adeyemi</span></div>
+            </div>
+
+            <!-- OPERATIONS -->
+            <div class="sect" data-sect="ops">
+              <div class="sect-head"><h2>Operations defaults</h2><p>Thresholds behind attendance flags, patrol misses and alerts.</p></div>
+              <div class="sect-body">
+                <div class="form-grid">
+                  <div class="form-row"><label for="sStart">Day shift starts</label><input class="input" id="sStart" value="06:00"></div>
+                  <div class="form-row"><label for="sEnd">Day shift ends</label><input class="input" id="sEnd" value="18:00"></div>
+                  <div class="form-row"><label for="sGrace">Late grace</label><input class="input" id="sGrace" value="15 minutes"></div>
+                  <div class="form-row"><label for="sGeo">Default geofence</label><input class="input" id="sGeo" value="120 m"></div>
+                  <div class="form-row"><label for="sPatrol">Patrol window</label><input class="input" id="sPatrol" value="45 minutes"></div>
+                  <div class="form-row"><label for="sCap">Weekly hours cap</label><input class="input" id="sCap" value="60 hours"></div>
+                </div>
+                <div style="margin-top:14px;border-top:1px solid var(--line);padding-top:4px">
+                  <div class="toggle-row"><div class="t-main"><div class="t-name">Page the duty manager on SOS</div><div class="t-desc">SMS and push go out even during quiet hours.</div></div><button class="switch" type="button" aria-pressed="true"></button></div>
+                  <div class="toggle-row"><div class="t-main"><div class="t-name">Require NFC for patrol checkpoints</div><div class="t-desc">Off means the guard app falls back to GPS and a manual confirmation.</div></div><button class="switch" type="button" aria-pressed="true"></button></div>
+                  <div class="toggle-row"><div class="t-main"><div class="t-name">Block check-in outside the geofence</div><div class="t-desc">Ten minutes of grace, then the officer is asked to confirm their location.</div></div><button class="switch" type="button" aria-pressed="true"></button></div>
+                  <div class="toggle-row"><div class="t-main"><div class="t-name">Quiet hours</div><div class="t-desc">Medium and low alerts are held until 06:00. Critical alerts still page.</div></div><div class="hstack"><input class="input" value="22:00" style="width:66px"><span class="hint">to</span><input class="input" value="06:00" style="width:66px"></div></div>
+                </div>
+              </div>
+              <div class="save-row"><button class="btn primary sm" type="button" data-toast="Operations defaults saved">Save changes</button><span class="hint">Applies from the next shift</span></div>
+            </div>
+
+            <!-- GUARD APP -->
+            <div class="sect" data-sect="guard">
+              <div class="sect-head"><h2>Guard app</h2><p>What the handset can do in the field.</p></div>
+              <div class="sect-body">
+                <div class="form-grid">
+                  <div class="form-row"><label for="gSos">SOS hold</label><input class="input" id="gSos" value="2 seconds"></div>
+                  <div class="form-row"><label for="gOffline">Offline window</label><input class="input" id="gOffline" value="4 hours"></div>
+                  <div class="form-row"><label for="gRelease">Current release</label><input class="input" id="gRelease" value="4.2.0 · rolled out 9 Nov" disabled></div>
+                  <div class="form-row"><label for="gMin">Minimum supported</label><input class="input" id="gMin" value="4.0.4"></div>
+                </div>
+                <div style="margin-top:14px;border-top:1px solid var(--line);padding-top:4px">
+                  <div class="toggle-row"><div class="t-main"><div class="t-name">Require NFC card for attendance</div><div class="t-desc">A guard without a card is checked in by the supervisor instead.</div></div><button class="switch" type="button" aria-pressed="true"></button></div>
+                  <div class="toggle-row"><div class="t-main"><div class="t-name">Photo fallback when a tag fails</div><div class="t-desc">The checkpoint is signed with a photo and GPS instead of the tag.</div></div><button class="switch" type="button" aria-pressed="true"></button></div>
+                  <div class="toggle-row"><div class="t-main"><div class="t-name">Attach a photo to SOS by default</div><div class="t-desc">The camera opens with the SOS screen, not after it.</div></div><button class="switch" type="button" aria-pressed="true"></button></div>
+                  <div class="toggle-row"><div class="t-main"><div class="t-name">Guards can see their own analytics</div><div class="t-desc">Attendance, patrol completion, hours against the cap and this week's schedule.</div></div><button class="switch" type="button" aria-pressed="true"></button></div>
+                </div>
+                <div class="hstack" style="margin:18px 0 8px"><span class="lbl">Field signals</span><span class="right hint">last 24 hours</span></div>
+                <div class="mini-stats" style="gap:30px">
+                  <div class="mini-stat"><div class="ms-l">NFC reads</div><div class="ms-v">612</div></div>
+                  <div class="mini-stat"><div class="ms-l">Patrol scans</div><div class="ms-v">428</div></div>
+                  <div class="mini-stat"><div class="ms-l">Check-ins</div><div class="ms-v">53</div></div>
+                  <div class="mini-stat"><div class="ms-l">SOS</div><div class="ms-v">1</div></div>
+                </div>
+                <div class="hstack" style="margin:18px 0 5px"><span class="lbl">Handsets</span><span class="right hint">59 devices · 7 offline last week</span></div>
+                <table class="tbl compact">
+                  <thead><tr><th>Release</th><th class="n">Devices</th><th>State</th><th>Site</th></tr></thead>
+                  <tbody>
+                    <tr><td class="name mono">4.2.0</td><td class="n">54</td><td><span class="chip ok">Current</span></td><td class="dim">All sites</td></tr>
+                    <tr><td class="name mono">4.1.2</td><td class="n">3</td><td><span class="chip warn">Update due</span></td><td class="dim">Trade Centre, Archive Annex</td></tr>
+                    <tr><td class="name mono">4.0.4</td><td class="n">2</td><td><span class="chip bad">Offline 26h</span></td><td class="dim">Admiralty Heights</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="save-row"><button class="btn primary sm" type="button" data-toast="Guard app settings saved">Save changes</button><span class="hint">Applies on the next app open</span></div>
+            </div>
+
+            <!-- FINANCE -->
+            <div class="sect" data-sect="finance">
+              <div class="sect-head"><h2>Finances</h2><p>Invoice terms, payroll cycle and what Napoleon may draft.</p></div>
+              <div class="sect-body">
+                <div class="form-grid">
+                  <div class="form-row"><label for="fTerms">Invoice terms</label><input class="input" id="fTerms" value="30 days"></div>
+                  <div class="form-row"><label for="fVat">VAT</label><input class="input" id="fVat" value="7.5%"></div>
+                  <div class="form-row"><label for="fCycle">Payroll cycle</label><select class="select" id="fCycle"><option>Monthly · 28th</option><option>Monthly · last working day</option><option>Fortnightly</option></select></div>
+                  <div class="form-row"><label for="fInstant">Instant pay opens</label><input class="input" id="fInstant" value="14 Nov"></div>
+                  <div class="form-row"><label for="fApproval">Approval above</label><input class="input" id="fApproval" value="₦1,000,000"></div>
+                  <div class="form-row"><label for="fFy">Fiscal year starts</label><select class="select" id="fFy"><option>January</option><option>April</option><option>July</option></select></div>
+                </div>
+                <div style="margin-top:14px;border-top:1px solid var(--line);padding-top:4px">
+                  <div class="toggle-row"><div class="t-main"><div class="t-name">Napoleon drafts invoices from attendance</div><div class="t-desc">Posts, relief shifts and tag replacements are pulled from the period's records.</div></div><button class="switch" type="button" aria-pressed="true"></button></div>
+                  <div class="toggle-row"><div class="t-main"><div class="t-name">Second approval before an invoice is sent</div><div class="t-desc">Above the approval threshold, an admin must release it.</div></div><button class="switch" type="button" aria-pressed="true"></button></div>
+                  <div class="toggle-row"><div class="t-main"><div class="t-name">Email statements to clients automatically</div><div class="t-desc">Sent to the account contact on the 1st, with the previous month's SLA result.</div></div><button class="switch" type="button" aria-pressed="false"></button></div>
+                </div>
+                <div class="hstack" style="margin:18px 0 8px"><span class="lbl">November position</span><span class="right hint">ledger · 17 Nov</span></div>
+                <div class="mini-stats" style="gap:30px">
+                  <div class="mini-stat"><div class="ms-l">Invoices sent</div><div class="ms-v">7</div></div>
+                  <div class="mini-stat"><div class="ms-l">Paid</div><div class="ms-v">4</div></div>
+                  <div class="mini-stat"><div class="ms-l">Overdue</div><div class="ms-v">2 · ₦3.29m</div></div>
+                  <div class="mini-stat"><div class="ms-l">Payroll due</div><div class="ms-v">28 Nov</div></div>
+                </div>
+                <div class="lbl" style="display:block;margin:18px 0 2px">How pay is calculated</div>
+                <dl class="kv" style="max-width:720px">
+                  <dt>Gross</dt><dd>Present days × daily rate, from attendance records</dd>
+                  <dt>Absence</dt><dd>One daily rate per missing day; exceptions are reviewed before the run</dd>
+                  <dt>Overtime</dt><dd>Approved relief shifts and overtime only</dd>
+                  <dt>Instant pay</dt><dd>Net released on request, open from the 14th until the run on the 28th</dd>
+                </dl>
+              </div>
+              <div class="save-row"><button class="btn primary sm" type="button" data-toast="Finances settings saved">Save changes</button><span class="hint">Changed 4 Nov by Tolu Adeyemi</span></div>
+            </div>
+
+            <!-- INTELLIGENCE -->
+            <div class="sect" data-sect="intel">
+              <div class="sect-head"><h2>Intelligence</h2><p>What Napoleon reads, what the crawler matches, and how long records stay.</p></div>
+              <div class="sect-body">
+                <div class="form-grid">
+                  <div class="form-row"><label for="iScope">Napoleon scope</label><select class="select" id="iScope"><option>Operations and finance · read only</option><option>Operations only</option><option>All records including payroll amounts</option></select></div>
+                  <div class="form-row"><label for="iCrawl">Crawl interval</label><select class="select" id="iCrawl"><option>Every 15 minutes</option><option>Every 30 minutes</option><option>Hourly</option></select></div>
+                  <div class="form-row"><label for="iRadius">Triage radius</label><input class="input" id="iRadius" value="1 km from a site"></div>
+                  <div class="form-row"><label for="iKeep">Retention</label><select class="select" id="iKeep"><option>24 months</option><option>12 months</option><option>36 months</option></select></div>
+                </div>
+                <div style="margin-top:14px;border-top:1px solid var(--line);padding-top:4px">
+                  <div class="toggle-row"><div class="t-main"><div class="t-name">Crawler forwards matching reports to alerts</div><div class="t-desc">Reports inside the radius become alerts with the source attached.</div></div><button class="switch" type="button" aria-pressed="true"></button></div>
+                  <div class="toggle-row"><div class="t-main"><div class="t-name">Share ontology keys with exports</div><div class="t-desc">Exported figures join on the same site and officer keys as the console.</div></div><button class="switch" type="button" aria-pressed="true"></button></div>
+                  <div class="toggle-row"><div class="t-main"><div class="t-name">Napoleon may read payroll amounts</div><div class="t-desc">Off keeps pay figures out of assistant answers and drafts.</div></div><button class="switch" type="button" aria-pressed="false"></button></div>
+                </div>
+                <div class="hstack" style="margin:16px 0 5px"><span class="lbl">Crawled sources</span><span class="right hint">6 feeds · 7 reports this pass</span></div>
+                <table class="tbl compact">
+                  <thead><tr><th>Source</th><th>Last pass</th><th class="n">Scanned</th><th class="n">Matched</th><th>State</th></tr></thead>
+                  <tbody>
+                    <tr><td class="name">Punch</td><td class="dim mono">08:44</td><td class="n">22</td><td class="n">4</td><td><span class="chip ok">Crawling</span></td></tr>
+                    <tr><td class="name">Vanguard</td><td class="dim mono">08:44</td><td class="n">18</td><td class="n">3</td><td><span class="chip ok">Crawling</span></td></tr>
+                    <tr><td class="name">Daily Trust</td><td class="dim mono">08:44</td><td class="n">12</td><td class="n">3</td><td><span class="chip ok">Crawling</span></td></tr>
+                    <tr><td class="name">Channels TV</td><td class="dim mono">08:43</td><td class="n">10</td><td class="n">2</td><td><span class="chip ok">Crawling</span></td></tr>
+                    <tr><td class="name">Leadership</td><td class="dim mono">08:43</td><td class="n">9</td><td class="n">1</td><td><span class="chip ok">Crawling</span></td></tr>
+                    <tr><td class="name">Sahara Reporters</td><td class="dim mono">08:42</td><td class="n">5</td><td class="n">1</td><td><span class="chip warn">Slow</span></td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="save-row"><button class="btn primary sm" type="button" data-toast="Intelligence settings saved">Save changes</button><a class="btn sm" href="crawler.html" style="margin-left:auto">Open crawler</a></div>
+            </div>
+
+            <!-- TEAM -->
+            <div class="sect" data-sect="team">
+              <div class="sect-head"><h2>Team &amp; roles</h2><p>Console access only. Guard accounts live under Guards.</p></div>
+              <div class="sect-body">
+                <div class="hstack" style="margin-bottom:10px"><span class="lbl">Console users</span><button class="btn sm" type="button" style="margin-left:auto" data-toast="Invitation form opens">Invite member</button></div>
+                <table class="tbl">
+                  <thead><tr><th>Member</th><th>Role</th><th>2FA</th><th>Last active</th><th style="width:80px"></th></tr></thead>
+                  <tbody>
+                    <tr><td><div class="hstack"><span class="avatar a1">TA</span><div><div class="name">Tolu Adeyemi</div><div class="sub">tolu@spectra.ng</div></div></div></td><td>Owner</td><td><span class="chip ok">On</span></td><td class="dim">now</td><td><span class="chip info">You</span></td></tr>
+                    <tr><td><div class="hstack"><span class="avatar a2">HO</span><div><div class="name">Hans Ojeh</div><div class="sub">hans@spectra.ng</div></div></div></td><td><select class="select" style="height:22px;font-size:11px"><option selected>Admin</option><option>Moderator</option><option>Viewer</option></select></td><td><span class="chip ok">On</span></td><td class="dim">18 m ago</td><td><button class="btn xs" type="button" data-toast="Role change saved">Save</button></td></tr>
+                    <tr><td><div class="hstack"><span class="avatar a3">AF</span><div><div class="name">Adaeze Fola</div><div class="sub">adaeze@spectra.ng</div></div></div></td><td><select class="select" style="height:22px;font-size:11px"><option>Admin</option><option selected>Moderator</option><option>Viewer</option></select></td><td><span class="chip ok">On</span></td><td class="dim">2 h ago</td><td><button class="btn xs" type="button" data-toast="Role change saved">Save</button></td></tr>
+                    <tr><td><div class="hstack"><span class="avatar a4">BK</span><div><div class="name">Bola Kemi</div><div class="sub">bola@spectra.ng</div></div></div></td><td><select class="select" style="height:22px;font-size:11px"><option>Admin</option><option>Moderator</option><option selected>Viewer</option></select></td><td><span class="chip warn">Off</span></td><td class="dim">yesterday</td><td><button class="btn xs" type="button" data-toast="Role change saved">Save</button></td></tr>
+                  </tbody>
+                </table>
+                <div class="lbl" style="display:block;margin:16px 0 5px">Permission matrix</div>
+                <table class="matrix">
+                  <thead><tr><th>Capability</th><th class="c">Owner</th><th class="c">Admin</th><th class="c">Moderator</th><th class="c">Viewer</th></tr></thead>
+                  <tbody>
+                    <tr><td>Move officers and publish the roster</td><td class="c yes">✓</td><td class="c yes">✓</td><td class="c yes">✓</td><td class="c no">—</td></tr>
+                    <tr><td>Acknowledge alerts and close incidents</td><td class="c yes">✓</td><td class="c yes">✓</td><td class="c yes">✓</td><td class="c no">—</td></tr>
+                    <tr><td>Run and release payroll</td><td class="c yes">✓</td><td class="c yes">✓</td><td class="c no">—</td><td class="c no">—</td></tr>
+                    <tr><td>Change roles and devices</td><td class="c yes">✓</td><td class="c yes">✓</td><td class="c no">—</td><td class="c no">—</td></tr>
+                    <tr><td>Export finance and client records</td><td class="c yes">✓</td><td class="c yes">✓</td><td class="c no">—</td><td class="c yes">✓</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- ACCOUNT -->
+            <div class="sect" data-sect="account">
+              <div class="sect-head"><h2>Account</h2><p>Your profile and sign-in security.</p></div>
+              <div class="sect-body">
+                <div class="form-grid">
+                  <div class="form-row"><label for="aName">Full name</label><input class="input" id="aName" value="Tolu Adeyemi"></div>
+                  <div class="form-row"><label for="aEmail">Email</label><input class="input" id="aEmail" value="tolu@spectra.ng"></div>
+                  <div class="form-row"><label for="aPhone">Phone</label><input class="input" id="aPhone" value="+234 803 412 8890"></div>
+                  <div class="form-row"><label for="aRole">Role</label><input class="input" id="aRole" value="Owner" disabled></div>
+                  <div class="form-row"><label for="aPass">New password</label><input class="input" id="aPass" type="password" placeholder="At least 12 characters"></div>
+                  <div class="form-row"><label for="aPass2">Confirm password</label><input class="input" id="aPass2" type="password" placeholder="Repeat the password"></div>
+                </div>
+                <div style="margin-top:14px;border-top:1px solid var(--line);padding-top:4px;max-width:720px">
+                  <div class="toggle-row"><div class="t-main"><div class="t-name">Two-factor authentication</div><div class="t-desc">Authenticator app · added 2 Nov 2026</div></div><button class="switch" type="button" aria-pressed="true"></button></div>
+                  <div class="toggle-row"><div class="t-main"><div class="t-name">Sign-in alerts</div><div class="t-desc">Email me when a new device signs in.</div></div><button class="switch" type="button" aria-pressed="true"></button></div>
+                </div>
+                <div class="lbl" style="display:block;margin:16px 0 4px">Active sessions</div>
+                <table class="tbl compact">
+                  <thead><tr><th>Device</th><th>Location</th><th>Last active</th><th style="width:80px"></th></tr></thead>
+                  <tbody>
+                    <tr><td class="name">MacBook Pro · Chrome</td><td class="dim">Lagos, NG</td><td class="dim">now</td><td><span class="chip ok">This device</span></td></tr>
+                    <tr><td class="name">iPhone 15 · Bastion app</td><td class="dim">Lagos, NG</td><td class="dim">26 m ago</td><td><button class="btn xs" type="button" data-toast="Session ended">End</button></td></tr>
+                    <tr><td class="name">Windows · Edge</td><td class="dim">Abuja, NG</td><td class="dim">yesterday</td><td><button class="btn xs" type="button" data-toast="Session ended">End</button></td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="save-row"><button class="btn primary sm" type="button" data-toast="Account saved">Save changes</button></div>
+            </div>
+
+            <!-- LICENCE -->
+            <div class="sect" data-sect="licence">
+              <div class="sect-head"><h2>Licence</h2><p>Seats, renewal and which workstations are activated.</p></div>
+              <div class="sect-body">
+                <div class="form-grid">
+                  <div class="form-row"><label for="lPlan">Plan</label><input class="input" id="lPlan" value="Operations console · 60 seats" disabled></div>
+                  <div class="form-row"><label for="lKey">Licence key</label><input class="input" id="lKey" value="BSTN-TR14-••••-2026" disabled style="font-family:var(--mono);letter-spacing:.04em"></div>
+                  <div class="form-row"><label for="lRen">Renews</label><input class="input" id="lRen" value="17 Nov 2027 · 24 months" disabled></div>
+                  <div class="form-row"><label for="lWk">This workstation</label><input class="input" id="lWk" value="SSD-2415-77" disabled style="font-family:var(--mono)"></div>
+                </div>
+
+                <div class="hstack" style="margin:16px 0 6px"><span class="lbl">Seats</span><span class="right hint">59 of 60 in use · 1 spare</span></div>
+                <div style="height:8px;background:#e7edf3;border:1px solid #d5dfe8" role="img" aria-label="59 of 60 seats used"><i style="display:block;height:100%;width:98.3%;background:var(--blue)"></i></div>
+
+                <div class="hstack" style="margin:16px 0 6px"><span class="lbl">Activated workstations</span><button class="btn sm" type="button" style="margin-left:auto" data-toast="Activation link sent to tolu@spectra.ng">Email an activation link</button></div>
+                <table class="tbl compact">
+                  <thead><tr><th>Workstation</th><th>Location</th><th>Activated</th><th>State</th><th style="width:96px"></th></tr></thead>
+                  <tbody>
+                    <tr><td class="name mono">SSD-2415-77</td><td class="dim">Lagos, NG</td><td class="dim">4 Nov 2026</td><td><span class="chip ok">This machine</span></td><td></td></tr>
+                    <tr><td class="name mono">SSD-2402-64</td><td class="dim">Lagos, NG · control room</td><td class="dim">12 Oct 2026</td><td><span class="chip info">Active</span></td><td><button class="btn xs" type="button" data-toast="SSD-2402-64 deactivated · seat released">Deactivate</button></td></tr>
+                    <tr><td class="name mono">SSD-2210-19</td><td class="dim">Abuja, NG</td><td class="dim">2 Sep 2026</td><td><span class="chip warn">Last seen 6 days</span></td><td><button class="btn xs" type="button" data-toast="SSD-2210-19 deactivated · seat released">Deactivate</button></td></tr>
+                  </tbody>
+                </table>
+                <div class="hstack" style="margin:16px 0 6px"><span class="lbl">Seats by role</span><span class="right hint">59 used · 1 spare</span></div>
+                <table class="tbl compact">
+                  <thead><tr><th>Role</th><th style="width:90px">Used</th><th style="width:90px">Licensed</th><th>Note</th></tr></thead>
+                  <tbody>
+                    <tr><td class="name">Administrators</td><td class="mono">3</td><td class="mono dim">3</td><td class="dim">Full console</td></tr>
+                    <tr><td class="name">Operations managers</td><td class="mono">5</td><td class="mono dim">5</td><td class="dim">No billing</td></tr>
+                    <tr><td class="name">Supervisors</td><td class="mono">11</td><td class="mono dim">12</td><td class="dim">Read-only finances</td></tr>
+                    <tr><td class="name">Guard app accounts</td><td class="mono">40</td><td class="mono dim">40</td><td class="dim">Field only</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="save-row"><a class="btn primary sm" href="activate.html">Replace licence key</a><span class="hint">Keys are verified online and bind to one workstation</span></div>
+            </div>
+
+            <!-- DEVICES -->
+            <div class="sect" data-sect="devices">
+              <div class="sect-head"><h2>Devices</h2><p>Scanners, handsets and tag inventory.</p></div>
+              <div class="sect-body">
+                <div class="hstack" style="margin-bottom:6px"><span class="lbl">Scanners</span><button class="btn sm" type="button" style="margin-left:auto" data-toast="Pairing mode started · 60 seconds">Pair scanner</button></div>
+                <div class="device-row"><span class="avatar a1">NF</span><div class="d-main"><div class="d-name">Apapa · handheld 04</div><div class="d-meta">NFC-04 · firmware 2.8.1 · battery 82%</div></div><span class="chip ok">Online</span></div>
+                <div class="device-row"><span class="avatar a2">NF</span><div class="d-main"><div class="d-name">Trade Centre · handheld 07</div><div class="d-meta">NFC-07 · firmware 2.8.1 · battery 64%</div></div><span class="chip ok">Online</span></div>
+                <div class="device-row"><span class="avatar a3">NF</span><div class="d-main"><div class="d-name">Civic Tower · handheld 02</div><div class="d-meta">NFC-02 · firmware 2.6.4 · battery 21%</div></div><span class="chip warn">Firmware</span></div>
+                <div class="hstack" style="margin:14px 0 6px"><span class="lbl">Guard app</span></div>
+                <div class="form-grid">
+                  <div class="form-row"><label>Current release</label><input class="input" value="4.2.0 · rolled out 9 Nov" disabled></div>
+                  <div class="form-row"><label>Minimum supported</label><input class="input" value="4.0.4"></div>
+                </div>
+                <div class="hstack" style="margin:14px 0 6px"><span class="lbl">Tag inventory</span><span class="right hint">96 tags · 1 dead · 2 weak</span></div>
+                <table class="tbl compact">
+                  <thead><tr><th>Tag range</th><th>Site</th><th>State</th><th style="width:90px"></th></tr></thead>
+                  <tbody>
+                    <tr><td class="mono">CP-01 – CP-15</td><td class="name">Trade Centre</td><td><span class="chip bad">1 dead</span></td><td><button class="btn xs" type="button" data-toast="Tag write mode started">Write</button></td></tr>
+                    <tr><td class="mono">CP-01 – CP-12</td><td class="name">Apapa Terminal 2</td><td><span class="chip ok">All read</span></td><td><button class="btn xs" type="button" data-toast="Tag write mode started">Write</button></td></tr>
+                    <tr><td class="mono">CP-01 – CP-09</td><td class="name">Civic Tower</td><td><span class="chip warn">1 weak</span></td><td><button class="btn xs" type="button" data-toast="Tag write mode started">Write</button></td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="save-row"><button class="btn primary sm" type="button" data-toast="Device settings saved">Save changes</button></div>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <footer data-shell="status"></footer>
+    </div>
+  </div>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/shell.js"></script>
+<script>
+(function () {
+  document.querySelectorAll('[data-s]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      document.querySelectorAll('[data-s]').forEach(function (x) { x.setAttribute('aria-current', 'false'); });
+      b.setAttribute('aria-current', 'true');
+      var key = b.getAttribute('data-s');
+      document.querySelectorAll('[data-sect]').forEach(function (s) { s.classList.toggle('on', s.getAttribute('data-sect') === key); });
+      document.querySelector('.set-panel').scrollTop = 0;
+    });
+  });
+  document.querySelectorAll('.switch').forEach(function (s) {
+    s.addEventListener('click', function () {
+      var on = s.getAttribute('aria-pressed') === 'true';
+      s.setAttribute('aria-pressed', String(!on));
+      toast('Setting ' + (on ? 'turned off' : 'turned on'));
+    });
+  });
+})();
+</script>
+</body>
+</html>

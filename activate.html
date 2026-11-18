@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Activate · Bastion OS</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="css/console.css">
+<script src="js/splash.js"></script>
+<link rel="stylesheet" href="css/auth.css">
+</head>
+<body class="auth">
+
+<main class="auth-main">
+  <div class="card">
+    <div class="brandrow">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.6 19.4 5.8v6.1c0 4.6-3.1 8-7.4 9.5-4.3-1.5-7.4-4.9-7.4-9.5V5.8L12 2.6Z"/><path d="m9 11.8 2.2 2.2 4-4.2"/></svg>
+      <b>BASTION OS</b>
+      <span>Spectra Security</span>
+    </div>
+
+    <div id="view-form">
+      <h1>Activate</h1>
+      <p class="lead">Enter your licence key for this workstation.</p>
+
+      <form id="form" novalidate>
+        <div class="a-field">
+          <label for="key">Licence key</label>
+          <input class="key-input" id="key" name="key" type="text" inputmode="text"
+                 autocomplete="off" spellcheck="false" placeholder="BSTN-XXXX-XXXX-XXXX" autofocus>
+        </div>
+
+        <div class="a-row">
+          <span class="a-note" style="margin:0">16 characters</span>
+          <button class="a-text-btn" id="trial" type="button" style="margin-left:auto">Use trial key</button>
+        </div>
+
+        <div class="a-err" id="err" role="alert" hidden></div>
+
+        <button class="a-btn" id="go" type="submit">Activate</button>
+      </form>
+
+      <div class="a-alt">
+        <span>Already activated?</span>
+        <a href="signin.html">Sign in</a>
+      </div>
+    </div>
+
+    <div class="receipt" id="view-done" hidden>
+      <div class="rc-head">
+        <span class="rc-tick"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.4 4.4L19 6.6"/></svg></span>
+        <h2>Licence activated</h2>
+      </div>
+
+      <dl class="rc-rows">
+        <div class="rc-row"><dt>Key</dt><dd class="mono" id="rcKey">—</dd></div>
+        <div class="rc-row"><dt>Seats</dt><dd>60 · 1 spare</dd></div>
+        <div class="rc-row"><dt>Modules</dt><dd>Operations · Finances · Intelligence · Guard app</dd></div>
+        <div class="rc-row"><dt>Renews</dt><dd>17 Nov 2027</dd></div>
+      </dl>
+
+      <div class="rc-actions">
+        <a class="a-btn inline" href="index.html">Open console</a>
+        <button class="a-btn ghost" id="again" type="button">Use a different key</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+(function () {
+  var key = document.getElementById('key');
+  var form = document.getElementById('form');
+  var err = document.getElementById('err');
+  var go = document.getElementById('go');
+
+  function format(raw) {
+    var c = String(raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 16);
+    return c.replace(/(.{4})(?=.)/g, '$1-');
+  }
+  function clean() { return key.value.toUpperCase().replace(/[^A-Z0-9]/g, ''); }
+
+  function bad(msg) {
+    err.innerHTML = msg;
+    err.hidden = false;
+    key.classList.add('bad');
+  }
+
+  key.addEventListener('input', function () {
+    key.value = format(key.value);
+    err.hidden = true;
+    key.classList.remove('bad');
+  });
+
+  document.getElementById('trial').addEventListener('click', function () {
+    key.value = format('BSTNTR14L9K22026');
+    err.hidden = true;
+    key.classList.remove('bad');
+    go.focus();
+  });
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    err.hidden = true;
+    key.classList.remove('bad');
+
+    var v = clean();
+    if (v.length < 16) {
+      bad('<b>Key incomplete.</b> ' + v.length + ' of 16 characters entered.');
+      key.focus();
+      return;
+    }
+    if (v.slice(0, 4) !== 'BSTN') {
+      bad('<b>Not a Bastion key.</b> Keys begin with BSTN.');
+      key.focus();
+      key.select();
+      return;
+    }
+
+    document.getElementById('rcKey').textContent = v.slice(0, 4) + '-' + v.slice(4, 8) + '-••••-' + v.slice(12, 16);
+    document.getElementById('view-form').hidden = true;
+    document.getElementById('view-done').hidden = false;
+    document.getElementById('view-done').querySelector('a.a-btn').focus();
+  });
+
+  document.getElementById('again').addEventListener('click', function () {
+    document.getElementById('view-done').hidden = true;
+    document.getElementById('view-form').hidden = false;
+    key.value = '';
+    key.focus();
+  });
+})();
+</script>
+</body>
+</html>

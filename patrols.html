@@ -1,0 +1,448 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Patrols · Bastion OS</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="css/console.css">
+<script src="js/splash.js"></script>
+<link rel="stylesheet" href="css/pages.css">
+<style>
+  .pat-body { display: flex; flex-direction: column; gap: 12px; padding-bottom: 26px; }
+
+  /* day stepper in the page head */
+  .daynav { display: flex; align-items: center; gap: 2px; }
+  .daynav-date { font: 500 11px/1 var(--mono); color: var(--text); padding: 0 8px; letter-spacing: .02em; }
+  #todayBtn { margin-left: 6px; }
+  #todayBtn[hidden] { display: none; }
+
+  /* summary band */
+  .pat-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); flex: 0 0 auto; }
+  .pat-kpis .kpi { padding: 10px 12px 11px; }
+  .pat-kpis .k-val { font-size: 26px; letter-spacing: -1.2px; }
+
+  .pat-body .toolbar .field { flex: 0 1 290px; min-width: 170px; }
+  .pat-body #filter { width: 172px; }
+  .pat-body .legend-list { padding-left: 12px; border-left: 1px solid var(--line); flex-wrap: nowrap; }
+  .pat-body .legend-list span { white-space: nowrap; }
+
+  .lg-sw { display: inline-block; width: 9px; height: 9px; border: 1px solid var(--line-strong); }
+  .lg-sw.signed { background: #6288a6; border-color: #6f89a1; }
+  .lg-sw.missed { background: #0b2740; border-color: #0b2740; }
+  .lg-sw.pending { background: #fbfcfd; }
+
+  /* ---------- site blocks ---------- */
+  .pat-groups { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+
+  .sgroup { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); min-width: 0; }
+  .sg-head {
+    position: sticky; top: -12px; z-index: 3;
+    display: flex; align-items: center; gap: 8px;
+    height: 34px; padding: 0 10px 0 5px;
+    background: var(--panel-2);
+    border-bottom: 1px solid var(--line);
+  }
+  .sg-toggle { display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 4px; text-align: left; min-width: 0; }
+  .sg-toggle:hover .sg-name { color: var(--blue-2); }
+  .sg-chev { width: 13px; height: 13px; color: var(--muted); transition: transform 130ms ease; }
+  .sgroup.closed .sg-chev { transform: rotate(-90deg); }
+  .sg-name { font: 600 12.5px/1 var(--ui); color: var(--text); white-space: nowrap; }
+  .sg-area { font: 500 9.5px/1 var(--mono); color: var(--faint); letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; }
+
+  .sg-figs { margin-left: auto; display: flex; align-items: center; gap: 13px; font: 500 10px/1 var(--mono); color: var(--muted); white-space: nowrap; }
+  .sg-figs b { font-weight: 600; color: var(--text-2); }
+  .sg-figs .mm b { color: var(--red); }
+  .sg-meter { width: 78px; height: 4px; background: #dee2e6; flex: 0 0 auto; }
+  .sg-meter i { display: block; height: 100%; background: var(--blue); }
+
+  .sg-body { padding: 0 10px 4px; }
+  .sgroup.closed .sg-body { display: none; }
+
+  /* one grid for the axis and every row, so the hours line up */
+  .pgrid {
+    display: grid;
+    grid-template-columns: minmax(168px, 1fr) repeat(8, minmax(0, 1fr)) 42px 96px;
+    gap: 0 8px;
+    align-items: center;
+  }
+  .axis { height: 25px; align-items: end; border-bottom: 1px solid var(--line); }
+  .axis span { font: 500 9px/1 var(--mono); color: var(--faint); text-align: center; padding-bottom: 6px; }
+  .axis span.lbl { text-align: left; font: 600 8.5px/1 var(--ui); letter-spacing: .09em; text-transform: uppercase; color: var(--faint); }
+
+  .prow { min-height: 33px; border-bottom: 1px solid var(--line-2); cursor: pointer; }
+  .prow:last-child { border-bottom: 0; }
+  .prow:hover { background: #fafbfc; }
+
+  .pc-who { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .pc-who .avatar { width: 22px; height: 22px; font-size: 8.5px; }
+  .pc-txt { min-width: 0; }
+  .pc-name { display: block; font-size: 12px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pc-name:hover { text-decoration: underline; }
+  .pc-post { font: 500 9.5px/1.4 var(--mono); color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* checkpoint cell — filled / missed / not yet */
+  .ck { height: 15px; border: 1px solid #e8ebee; background: #fbfcfd; position: relative; }
+  .ck.signed { background: #6288a6; border-color: #6f89a1; }
+  .ck.missed { background: var(--red); border-color: var(--red); }
+  .ck.missed::before, .ck.missed::after {
+    content: ""; position: absolute; left: 50%; top: 50%;
+    width: 6px; height: 1px; background: #ffffff;
+  }
+  .ck.missed::before { transform: translate(-50%, -50%) rotate(45deg); }
+  .ck.missed::after  { transform: translate(-50%, -50%) rotate(-45deg); }
+
+  .pc-tally { font: 600 11px/1 var(--mono); color: var(--text); text-align: right; font-variant-numeric: tabular-nums; }
+  .pc-tally span { color: var(--faint); font-weight: 500; }
+  .pc-chip { justify-self: end; }
+
+  .pnote {
+    grid-column: 2 / -1;
+    margin: -3px 0 0 30px;
+    padding-bottom: 7px;
+    font-size: 10.5px; line-height: 1.5; color: var(--text-2);
+  }
+
+  @media (max-width: 1200px) {
+    .pgrid { grid-template-columns: minmax(150px, 1fr) repeat(8, minmax(0, 1fr)) 38px 88px; gap: 0 6px; }
+    .sg-figs { gap: 10px; }
+  }
+  @media (max-width: 1060px) {
+    .pgrid { grid-template-columns: minmax(158px, 1fr) repeat(8, minmax(0, 1fr)) 36px; }
+    .pc-chip, .ax-state { display: none; }
+    .pat-body .legend-list { display: none; }
+  }
+  @media (max-width: 980px) {
+    .pat-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .pat-kpis .kpi:nth-child(3) { border-left: 0; border-top: 1px solid var(--line); }
+    .pat-kpis .kpi:nth-child(4) { border-top: 1px solid var(--line); }
+    #listCount { display: none; }
+  }
+  @media (max-width: 880px) {
+    .pgrid { grid-template-columns: minmax(116px, 1fr) repeat(8, minmax(0, 1fr)); }
+    .pc-tally, .sg-meter, .ax-signed { display: none; }
+    .pc-post { display: none; }
+    .pc-who .avatar { display: none; }
+    .pnote { margin-left: 0; }
+  }
+</style>
+</head>
+<body data-nav="patrols" data-crumb="Operations" data-here="Patrols">
+<div class="app">
+  <aside data-shell="rail"></aside>
+  <div class="shell">
+    <header data-shell="topbar"></header>
+
+    <div class="page">
+      <div class="page-head">
+        <div class="page-title">Patrols</div>
+        <div class="page-tools">
+          <div class="daynav" role="group" aria-label="Patrol day">
+            <button class="icb" type="button" id="prevDay" aria-label="Previous day"><svg class="ic"><use href="#i-chevronLeft"/></svg></button>
+            <span class="daynav-date" id="dayDate" aria-live="polite">17/11/2026</span>
+            <button class="icb" type="button" id="nextDay" aria-label="Next day"><svg class="ic"><use href="#i-chevronRight"/></svg></button>
+            <button class="btn ghost xs" type="button" id="todayBtn" hidden>Today</button>
+          </div>
+          <button class="btn sm" type="button" id="export"><svg class="ic"><use href="#i-download"/></svg>Export CSV</button>
+        </div>
+      </div>
+
+      <div class="body pat-body">
+        <section class="kpis pat-kpis" aria-label="Patrol summary">
+          <div class="kpi"><div class="k-label"><span class="micro">Completed</span></div><div class="k-val" id="kDone">0</div></div>
+          <div class="kpi"><div class="k-label"><span class="micro">In progress</span></div><div class="k-val" id="kProgress">0</div></div>
+          <div class="kpi"><div class="k-label"><span class="micro">Not completed</span></div><div class="k-val" id="kOpen">0</div></div>
+          <div class="kpi"><div class="k-label"><span class="micro">Guards on date</span></div><div class="k-val" id="kGuards">0</div></div>
+        </section>
+
+        <div class="toolbar">
+          <label class="field">
+            <svg class="ic"><use href="#i-search"/></svg>
+            <input type="text" id="q" placeholder="Search guard, site or post" aria-label="Search guard, site or post">
+          </label>
+          <select class="select" id="filter" aria-label="Filter rounds">
+            <option value="all">All rounds</option>
+            <option value="notcomplete">Not completed</option>
+            <option value="progress">In progress</option>
+            <option value="completed">Completed</option>
+          </select>
+          <span class="spacer"></span>
+          <span class="tl" id="listCount"></span>
+          <div class="legend-list" aria-label="Checkpoint state">
+            <span><i class="lg-sw signed"></i>Signed</span>
+            <span><i class="lg-sw missed"></i>Missed</span>
+            <span><i class="lg-sw pending"></i>Not yet</span>
+          </div>
+        </div>
+
+        <div class="pat-groups" id="list"></div>
+      </div>
+
+      <footer data-shell="status"></footer>
+    </div>
+  </div>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/shell.js"></script>
+<script>
+(function () {
+  boardStore.apply();
+
+  /* the console runs on a fixed shift clock — Tue 17 Nov, 08:42 — so the day
+     stepper is anchored to that date rather than the machine clock */
+  var NOW_H = 8;             /* 08:42 · the 08:00 checkpoint is due */
+  var SLOTS = 8;             /* 06:00 – 13:00, hourly */
+  var START_H = 6;
+  var DAY_SPAN = 7;          /* how far back the stepper goes */
+
+  var state = { idx: 0, filter: 'all', q: '' };
+  var collapsed = {};
+  var cache = {};
+
+  var RANK = { notcomplete: 0, progress: 1, completed: 2 };
+  var STATUS_LABEL = { notcomplete: 'Not completed', progress: 'In progress', completed: 'Completed' };
+  var STATUS_CHIP = { notcomplete: 'bad', progress: 'warn', completed: 'ok' };
+  var CELL_LABEL = { signed: 'Signed', missed: 'Missed', pending: 'Not yet' };
+
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
+  function siteName(k) { var s = B.site(k); return s ? s.name : '—'; }
+  function dayAt(idx) { return new Date(2026, 10, 17 - idx); }
+  function dayKey(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  function dayShort(d) {
+    var dow = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getDay()];
+    var mon = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getMonth()];
+    return dow + ' ' + d.getDate() + ' ' + mon;
+  }
+  function hh(h) { return pad(h) + ':00'; }
+
+  /* FNV-1a — stable per officer, day and checkpoint, so history never reshuffles */
+  function hash(s) {
+    var h = 2166136261;
+    for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return h >>> 0;
+  }
+
+  function roundFor(o, idx) {
+    var ck = o.id + '@' + idx;
+    if (cache[ck]) return cache[ck];
+    var d = dayAt(idx), isToday = idx === 0, key = dayKey(d);
+    var slots = [], missed = 0, signed = 0, pending = 0, note = '';
+
+    for (var i = 0; i < SLOTS; i++) {
+      var h = START_H + i, st;
+      if (isToday && h > NOW_H) st = 'pending';
+      else if (hash(o.id + key + h) % 100 < (isToday ? 3 : 5)) st = 'missed';
+      else st = 'signed';
+      slots.push({ h: h, st: st, note: '' });
+    }
+
+    if (isToday) {
+      if (o.state === 'noshow') {
+        slots.forEach(function (s) { if (s.st !== 'pending') { s.st = 'missed'; s.note = 'no sign-in'; } });
+        note = 'No sign-in on record. Post was covered from 07:58.';
+      } else if (o.state === 'late') {
+        slots[0].st = 'missed'; slots[0].note = 'signed ' + o.time;
+        note = 'Signed in at ' + o.time + ', after the 06:15 cut-off.';
+      }
+      if (o.site === 'trade' && o.name === 'Nnamdi Eze') {
+        slots[1].st = 'missed'; slots[1].note = 'CP-12 no read';
+        slots[2].st = 'missed'; slots[2].note = 'CP-12 no read';
+        note = 'CP-12 has not answered for 26 h. Dead tag, not the officer — replacement booked for 10:00.';
+      }
+      if (o.site === 'cedar' && o.name === 'Fatima Bello') {
+        note = 'Round paused 08:31 when the Gate B SOS was raised.';
+      }
+    }
+
+    slots.forEach(function (s) {
+      if (s.st === 'signed') signed++;
+      else if (s.st === 'missed') missed++;
+      else pending++;
+    });
+
+    var status = missed ? 'notcomplete' : pending ? 'progress' : 'completed';
+    var r = { o: o, slots: slots, signed: signed, missed: missed, pending: pending, status: status, note: note };
+    cache[ck] = r;
+    return r;
+  }
+
+  function allRounds(idx) {
+    return B.roster.filter(function (o) { return o.site !== 'bench'; }).map(function (o) { return roundFor(o, idx); });
+  }
+
+  function matches(r) {
+    if (state.filter !== 'all' && r.status !== state.filter) return false;
+    if (state.q) {
+      var hay = (r.o.name + ' ' + r.o.id + ' ' + r.o.post + ' ' + siteName(r.o.site)).toLowerCase();
+      if (hay.indexOf(state.q) === -1) return false;
+    }
+    return true;
+  }
+
+  function byRank(a, b) {
+    if (RANK[a.status] !== RANK[b.status]) return RANK[a.status] - RANK[b.status];
+    return a.o.name < b.o.name ? -1 : a.o.name > b.o.name ? 1 : 0;
+  }
+
+  /* group the day's rounds by site, so the hour columns are shared */
+  function groupRounds(list) {
+    var map = {}, order = [];
+    list.forEach(function (r) {
+      if (!map[r.o.site]) { map[r.o.site] = { key: r.o.site, site: B.site(r.o.site), rounds: [] }; order.push(r.o.site); }
+      map[r.o.site].rounds.push(r);
+    });
+    var groups = order.map(function (k) { return map[k]; });
+    groups.forEach(function (g) {
+      g.rounds.sort(byRank);
+      g.rank = 3; g.signed = 0; g.missed = 0; g.pending = 0;
+      g.rounds.forEach(function (r) {
+        g.rank = Math.min(g.rank, RANK[r.status]);
+        g.signed += r.signed; g.missed += r.missed; g.pending += r.pending;
+      });
+      g.due = g.signed + g.missed;
+      g.pct = g.due ? Math.round(g.signed / g.due * 100) : 100;
+    });
+    groups.sort(function (a, b) {
+      if (a.rank !== b.rank) return a.rank - b.rank;
+      if (a.missed !== b.missed) return b.missed - a.missed;
+      return a.site.name < b.site.name ? -1 : 1;
+    });
+    return groups;
+  }
+
+  function cellsHTML(r) {
+    return r.slots.map(function (s) {
+      var tip = r.o.name + ' · ' + hh(s.h) + ' · ' + CELL_LABEL[s.st] + (s.note ? ' · ' + s.note : '');
+      return '<span class="ck ' + s.st + '" title="' + esc(tip) + '"></span>';
+    }).join('');
+  }
+
+  var listEl = document.getElementById('list');
+
+  function paint() {
+    var d = dayAt(state.idx);
+    document.getElementById('dayDate').textContent = pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + '/' + d.getFullYear();
+    document.getElementById('nextDay').disabled = state.idx === 0;
+    document.getElementById('todayBtn').hidden = state.idx === 0;
+
+    var all = allRounds(state.idx);
+    var done = 0, progress = 0, open = 0;
+    all.forEach(function (r) {
+      if (r.status === 'completed') done++;
+      else if (r.status === 'progress') progress++;
+      else open++;
+    });
+    document.getElementById('kDone').textContent = done;
+    document.getElementById('kProgress').textContent = progress;
+    document.getElementById('kOpen').textContent = open;
+    document.getElementById('kGuards').textContent = all.length;
+
+    var sel = document.getElementById('filter');
+    Array.prototype.forEach.call(sel.options, function (o) {
+      var n = o.value === 'all' ? all.length : all.filter(function (r) { return r.status === o.value; }).length;
+      o.textContent = STATUS_LABEL[o.value] ? STATUS_LABEL[o.value] + ' · ' + n : 'All rounds · ' + n;
+    });
+
+    var groups = groupRounds(all.filter(matches));
+    var axis = '<span class="lbl">Officer</span>' + (function () {
+      var out = '';
+      for (var i = 0; i < SLOTS; i++) out += '<span>' + hh(START_H + i) + '</span>';
+      return out;
+    })() + '<span class="lbl ax-signed" style="text-align:right">Signed</span><span class="lbl ax-state" style="text-align:right">State</span>';
+
+    listEl.innerHTML = groups.length ? groups.map(function (g) {
+      var closed = !!collapsed[g.key];
+      return '<section class="sgroup' + (closed ? ' closed' : '') + '">' +
+        '<div class="sg-head">' +
+          '<button class="sg-toggle" type="button" data-g="' + g.key + '" aria-expanded="' + (!closed) + '">' +
+            '<svg class="ic sg-chev"><use href="#i-chevronDown"/></svg>' +
+            '<span class="sg-name">' + esc(g.site ? g.site.name : '—') + '</span>' +
+            '<span class="sg-area">' + esc(g.site ? g.site.area : '') + '</span>' +
+          '</button>' +
+          '<div class="sg-figs">' +
+            '<span><b>' + g.rounds.length + '</b> ' + (g.rounds.length === 1 ? 'officer' : 'officers') + '</span>' +
+            '<span><b>' + g.signed + '</b> signed</span>' +
+            '<span class="mm"><b>' + g.missed + '</b> missed</span>' +
+            '<span class="sg-meter" title="' + g.pct + '% of due checkpoints signed"><i style="width:' + g.pct + '%"></i></span>' +
+          '</div>' +
+        '</div>' +
+        '<div class="sg-body">' +
+          '<div class="pgrid axis">' + axis + '</div>' +
+          g.rounds.map(function (r) {
+            return '<div class="prow pgrid" data-o="' + r.o.id + '">' +
+              '<div class="pc-who">' + B.avatarHTML(r.o) +
+                '<div class="pc-txt grow">' +
+                  '<a class="pc-name" href="people.html?guard=' + r.o.id + '">' + esc(r.o.name) + '</a>' +
+                  '<div class="pc-post" title="shift ' + hh(START_H) + '–' + hh(START_H + SLOTS) + '">' + esc(r.o.post) + '</div>' +
+                '</div>' +
+              '</div>' +
+              cellsHTML(r) +
+              '<div class="pc-tally">' + r.signed + '<span>/' + SLOTS + '</span></div>' +
+              '<span class="chip ' + STATUS_CHIP[r.status] + ' pc-chip">' + STATUS_LABEL[r.status] + '</span>' +
+              (r.note ? '<div class="pnote">' + esc(r.note) + '</div>' : '') +
+            '</div>';
+          }).join('') +
+        '</div>' +
+      '</section>';
+    }).join('') : '<div class="panel"><div class="empty"><strong>No round matches</strong>Clear the search or pick another day.</div></div>';
+
+    document.getElementById('listCount').textContent = groups.reduce(function (n, g) { return n + g.rounds.length; }, 0) +
+      ' rounds · ' + groups.length + (groups.length === 1 ? ' site · ' : ' sites · ') + dayShort(d);
+  }
+
+  /* collapse a site block · open a guard record */
+  listEl.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-g]');
+    if (b) {
+      var k = b.getAttribute('data-g');
+      collapsed[k] = !collapsed[k];
+      b.setAttribute('aria-expanded', String(!collapsed[k]));
+      b.closest('.sgroup').classList.toggle('closed', collapsed[k]);
+      return;
+    }
+    if (e.target.closest('a')) return;
+    var row = e.target.closest('.prow[data-o]');
+    if (row) location.href = 'people.html?guard=' + row.getAttribute('data-o');
+  });
+
+  /* ---------- day stepper ---------- */
+  document.getElementById('prevDay').addEventListener('click', function () {
+    if (state.idx < DAY_SPAN - 1) { state.idx++; paint(); }
+  });
+  document.getElementById('nextDay').addEventListener('click', function () {
+    if (state.idx > 0) { state.idx--; paint(); }
+  });
+  document.getElementById('todayBtn').addEventListener('click', function () { state.idx = 0; paint(); });
+
+  /* ---------- filters ---------- */
+  document.getElementById('filter').addEventListener('change', function (e) { state.filter = e.target.value; paint(); });
+  document.getElementById('q').addEventListener('input', function (e) { state.q = e.target.value.trim().toLowerCase(); paint(); });
+
+  /* ---------- export ---------- */
+  document.getElementById('export').addEventListener('click', function () {
+    var d = dayAt(state.idx);
+    var rows = [['Guard', 'Guard ID', 'Site', 'Post', 'Shift', 'Checkpoint', 'State', 'Note']];
+    allRounds(state.idx).filter(matches).forEach(function (r) {
+      r.slots.forEach(function (s) {
+        rows.push([r.o.name, r.o.id, siteName(r.o.site), r.o.post, hh(START_H) + '-' + hh(START_H + SLOTS),
+                   hh(s.h), CELL_LABEL[s.st], s.note || '']);
+      });
+    });
+    var csv = rows.map(function (row) {
+      return row.map(function (c) { return '"' + String(c).replace(/"/g, '""') + '"'; }).join(',');
+    }).join('\r\n');
+    var url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    var a = document.createElement('a');
+    a.href = url; a.download = 'bastion-patrols-' + dayKey(d) + '.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+    toast('Exported ' + (rows.length - 1) + ' checkpoints · ' + dayShort(d), 'download');
+  });
+
+  paint();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,601 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ontology · Bastion OS</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="css/console.css">
+<script src="js/splash.js"></script>
+<link rel="stylesheet" href="css/pages.css">
+<style>
+  .kg-wrap { flex: 1 1 auto; min-height: 0; background: var(--panel-2); position: relative; overflow: auto; }
+  .kg-wrap svg { width: 100%; height: 100%; min-height: 440px; display: block; }
+
+  .kg-edge { stroke: #bcc8d4; stroke-width: 1; fill: none; }
+  .kg-edge.hot { stroke: var(--blue); stroke-width: 1.4; }
+
+  .kg-node { cursor: pointer; }
+  .kg-node rect.box { fill: #ffffff; stroke: var(--line-strong); stroke-width: 1; }
+  .kg-node .n-name { font: 600 11.5px/1 var(--ui); fill: var(--text); }
+  .kg-node .n-key { font: 500 8.5px/1 var(--mono); fill: var(--faint); }
+  .kg-node:hover rect.box { stroke: #5c86ad; }
+  .kg-node.on rect.box { fill: var(--blue); stroke: var(--blue-2); }
+  .kg-node.on .n-name { fill: #ffffff; }
+  .kg-node.on .n-key { fill: #b7cee3; }
+  .kg-node.dim { opacity: .24; }
+
+  .kg-elabel { font: 500 8px/1 var(--mono); fill: var(--blue-2); letter-spacing: .05em; }
+  .kg-elabel-bg { fill: #ffffff; }
+
+  .kg-legend { position: absolute; left: 10px; bottom: 10px; display: flex; gap: 12px; background: rgba(246,247,248,.94); border: 1px solid var(--line); padding: 5px 8px; }
+  .kg-legend span { font: 500 9px/1 var(--mono); color: var(--muted); display: flex; align-items: center; gap: 5px; }
+  .kg-legend i { width: 14px; height: 1px; background: #c6d0da; display: block; }
+  .kg-legend i.sel { background: var(--blue); height: 2px; }
+  .kg-legend i.box { width: 9px; height: 9px; background: #fff; border: 1px solid var(--line-strong); }
+
+  /* ---------- entity panel ---------- */
+  .ent-head { display: flex; align-items: baseline; gap: 7px; }
+  .ent-name { font: 600 15px/1.15 var(--ui); color: var(--text); letter-spacing: -.01em; }
+  .ent-store { font: 400 9.5px/1.3 var(--mono); color: var(--faint); }
+  .ent-rec { margin-left: auto; font: 500 10px/1 var(--mono); color: var(--muted); }
+
+  .schema { width: 100%; border-collapse: collapse; margin-top: 4px; }
+  .schema th { text-align: left; font: 600 8.5px/1 var(--ui); letter-spacing: .085em; text-transform: uppercase; color: var(--muted); padding: 0 0 5px; border-bottom: 1px solid var(--line); }
+  .schema th:last-child { text-align: right; }
+  .schema td { padding: 4px 0; border-bottom: 1px solid var(--line-2); font: 400 10.5px/1.25 var(--mono); color: var(--text); }
+  .schema tr:last-child td { border-bottom: 0; }
+  .schema td.t { text-align: right; color: var(--muted); white-space: nowrap; }
+  .schema .bd, .reg-f .bd { font: 600 8px/1 var(--ui); letter-spacing: .06em; text-transform: uppercase; padding: 1px 3px; margin-left: 5px; vertical-align: 1px; border: 1px solid; }
+  .schema .bd.key, .reg-f .bd.key { color: var(--blue-2); background: var(--blue-bg); border-color: var(--blue-line); }
+  .schema .bd.fk, .reg-f .bd.fk { color: var(--muted); background: var(--panel-3); border-color: var(--line); }
+
+  /* ---------- relationship rows ---------- */
+  .rel { display: grid; grid-template-columns: 10px 108px minmax(0, 1fr) auto; gap: 6px; align-items: center; width: 100%; text-align: left; padding: 4px 2px; border-bottom: 1px solid var(--line-2); }
+  .rel:last-child { border-bottom: 0; }
+  .rel:hover { background: #f8f9fa; }
+  .rel .dir { font: 500 9px/1 var(--mono); color: var(--faint); }
+  .rel .verb { font: 500 8.5px/1 var(--mono); letter-spacing: .04em; color: var(--blue-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rel b { font-weight: 500; font-size: 11px; color: var(--text); }
+  .rel em { font: 400 9px/1 var(--mono); color: var(--faint); font-style: normal; }
+
+  .read-q { display: block; width: 100%; text-align: left; padding: 5px 2px; border-bottom: 1px solid var(--line-2); font-size: 11px; color: var(--text-2); }
+  .read-q:last-child { border-bottom: 0; }
+  .read-q:hover { color: var(--text); background: #f8f9fa; }
+  .read-q em { display: block; font: 400 9px/1.4 var(--mono); color: var(--faint); font-style: normal; margin-top: 2px; }
+
+  /* ---------- full schema registry ---------- */
+  .kg-grid { height: 640px; }
+  .reg { margin-top: 16px; }
+  .reg-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 7px; }
+  .reg-head h2 { font: 600 10px/1 var(--ui); letter-spacing: .085em; text-transform: uppercase; color: var(--text-2); }
+  .reg-head .n { font: 400 10px/1 var(--mono); color: var(--faint); }
+
+  .ent-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .ent-card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); display: flex; flex-direction: column; }
+  .ent-card-head { display: flex; align-items: baseline; gap: 7px; padding: 7px 9px 6px; background: var(--panel-2); border-bottom: 1px solid var(--line); }
+  .ent-idx { font: 500 9px/1 var(--mono); color: var(--faint); }
+  .ent-card-name { font: 600 11.5px/1.2 var(--ui); color: var(--text); letter-spacing: -.01em; }
+  .ent-card-meta { margin-left: auto; font: 400 9px/1 var(--mono); color: var(--faint); white-space: nowrap; }
+  .reg-fields { padding: 5px 9px 6px; flex: 1 1 auto; }
+  .reg-f { display: flex; align-items: baseline; gap: 4px; padding: 2.5px 0; }
+  .reg-f .fn { font: 400 10px/1.35 var(--mono); color: var(--text); }
+  .reg-f .ft { font: 400 9.5px/1.35 var(--mono); color: var(--muted); }
+  .reg-f .bd { margin-left: auto; }
+  .ent-card-foot { padding: 5px 9px 6px; border-top: 1px solid var(--line-2); font: 400 9px/1 var(--mono); color: var(--faint); }
+  .ent-card.dim, .rel-table tr.dim td { opacity: .3; }
+
+  .rel-table { width: 100%; border-collapse: collapse; }
+  .rel-table th { text-align: left; font: 600 8.5px/1 var(--ui); letter-spacing: .085em; text-transform: uppercase; color: var(--muted); padding: 7px 9px; border-bottom: 1px solid var(--line); background: var(--panel-2); white-space: nowrap; }
+  .rel-table th:last-child { text-align: right; }
+  .rel-table td { padding: 6px 9px; border-bottom: 1px solid var(--line-2); color: var(--text); }
+  .rel-table tr:last-child td { border-bottom: 0; }
+  .rel-table tr:hover td { background: #f8f9fa; }
+  .rel-table .rn { font: 400 9px/1 var(--mono); color: var(--faint); width: 34px; }
+  .rel-table .rj b { font: 600 11px/1.2 var(--ui); font-weight: 600; letter-spacing: -.005em; }
+  .rel-table .rj span { font: 400 9.5px/1.2 var(--mono); color: var(--blue-2); letter-spacing: .04em; padding: 0 3px; }
+  .rel-table .rc { font: 400 10px/1 var(--mono); color: var(--muted); text-align: right; width: 110px; white-space: nowrap; }
+
+  @media (max-width: 1180px) {
+    .grid-main { display: block; overflow: auto; }
+    .grid-main > .panel { margin-bottom: 10px; }
+    .kg-grid { height: auto; }
+    .kg-wrap { height: 380px; overflow: hidden; }
+    .kg-wrap svg { height: 100%; min-height: 0; }
+    .ent-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 760px) {
+    .ent-grid { grid-template-columns: minmax(0, 1fr); }
+  }
+</style>
+</head>
+<body data-nav="ontology" data-crumb="Intelligence" data-here="Ontology">
+<div class="app">
+  <aside data-shell="rail"></aside>
+  <div class="shell">
+    <header data-shell="topbar"></header>
+
+    <div class="page">
+      <div class="page-head">
+        <div class="page-title">Ontology <span class="id" id="titleId">9 ENTITY CLASSES · 16 RELATIONSHIPS</span></div>
+        <div class="page-tools">
+          <a class="btn sm" href="napoleon.html">Ask Napoleon</a>
+          <button class="btn sm" type="button" id="copySchema"><svg class="ic"><use href="#i-copy"/></svg>Copy schema</button>
+        </div>
+      </div>
+
+      <div class="body">
+        <section class="kpis" aria-label="Schema summary">
+          <div class="kpi"><div class="k-label"><span class="micro">Guards</span></div><div class="k-val">59</div><div class="k-sub">53 on post</div></div>
+          <div class="kpi"><div class="k-label"><span class="micro">Clients</span></div><div class="k-val">8</div><div class="k-sub">₦30.34m under contract</div></div>
+          <div class="kpi"><div class="k-label"><span class="micro">Sites</span></div><div class="k-val">8</div><div class="k-sub">56 posts</div></div>
+          <div class="kpi"><div class="k-label"><span class="micro">Entity classes</span></div><div class="k-val">9</div><div class="k-sub">GMS schema</div></div>
+          <div class="kpi"><div class="k-label"><span class="micro">Relationships</span></div><div class="k-val">16</div><div class="k-sub">typed joins</div></div>
+        </section>
+
+        <div class="toolbar">
+          <div class="seg" role="group" aria-label="Entity group">
+            <button type="button" aria-pressed="true" data-group="all">All</button>
+            <button type="button" aria-pressed="false" data-group="ops">Operations</button>
+            <button type="button" aria-pressed="false" data-group="business">Finances</button>
+            <button type="button" aria-pressed="false" data-group="intel">Intelligence</button>
+          </div>
+          <span class="count" id="graphCount">9 classes</span>
+          <span class="spacer"></span>
+          <label class="field" style="min-width:210px">
+            <svg class="ic"><use href="#i-search"/></svg>
+            <input type="text" id="q" placeholder="Find a class or field" aria-label="Find a class or field">
+          </label>
+        </div>
+
+        <div class="grid-main gm-2 kg-grid">
+          <section class="panel">
+            <div class="panel-head"><h2>Knowledge graph</h2><span class="cap">what Napoleon joins on</span>
+              <div class="panel-tools"><span class="chip info">live schema</span></div>
+            </div>
+            <div class="kg-wrap" id="kgWrap">
+              <svg id="kg" viewBox="0 0 900 620" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Entity graph of guards, clients, sites, shifts, patrols, incidents, payroll, external threats and reports"></svg>
+              <div class="kg-legend"><span><i class="box"></i>class</span><span><i class="sel"></i>selected</span><span><i></i>relationship</span></div>
+            </div>
+          </section>
+
+          <section class="panel flex-1">
+            <div class="panel-head"><h2>Entity</h2><span class="cap" id="nodeCap">guards</span>
+              <div class="panel-tools"><button class="btn ghost xs" type="button" id="openRecords">Records</button></div>
+            </div>
+            <div class="panel-body" id="nodePanel" style="overflow:auto"></div>
+          </section>
+        </div>
+
+        <section class="reg" aria-label="Entity classes and attributes">
+          <div class="reg-head"><h2>Entity classes</h2><span class="n" id="regCount"></span></div>
+          <div class="ent-grid" id="entGrid"></div>
+        </section>
+
+        <section class="reg" aria-label="Relationships">
+          <div class="reg-head"><h2>Relationships</h2><span class="n" id="relCount"></span></div>
+          <div class="panel" style="overflow:hidden">
+            <table class="rel-table" id="relTable"></table>
+          </div>
+        </section>
+      </div>
+
+      <footer data-shell="status"></footer>
+    </div>
+  </div>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/shell.js"></script>
+<script>
+(function () {
+  /* GMS entity schema — nine classes, fields exactly as specified. */
+  var E = {
+    guard: {
+      label: 'Guard', store: 'guards', records: 59, group: 'ops',
+      written: 'Bastion core · Guard app', x: 150, y: 310,
+      fields: [
+        ['guard_id', 'String', 'key'],
+        ['name', 'String', ''],
+        ['base_salary', 'Float', ''],
+        ['patrol_rate', 'Float', ''],
+        ['attendance_rate', 'Float · %', ''],
+        ['current_location', 'GeoJSON / Lat-Long', '']
+      ],
+      reads: [
+        ['Who is on post at Apapa?', 'guard → site'],
+        ['Who is closest to the hour cap?', 'guard → shift']
+      ]
+    },
+    client: {
+      label: 'Client', store: 'clients', records: 8, group: 'business',
+      written: 'Bastion core', x: 150, y: 110,
+      fields: [
+        ['client_id', 'String', 'key'],
+        ['name', 'String', ''],
+        ['address', 'String', ''],
+        ['contract_value', 'Float', ''],
+        ['contract_start_date', 'Date', ''],
+        ['renewal_date', 'Date', '']
+      ],
+      reads: [
+        ['What is this account worth?', 'client → contract_value'],
+        ['Who renews in the next 90 days?', 'client → renewal_date']
+      ]
+    },
+    site: {
+      label: 'Site', store: 'sites', records: 8, group: 'ops',
+      written: 'Bastion core · map', x: 450, y: 110,
+      fields: [
+        ['site_id', 'String', 'key'],
+        ['name', 'String', ''],
+        ['address', 'String', ''],
+        ['zone', 'String', ''],
+        ['total_guards_deployed', 'Integer', ''],
+        ['attendance_percentage', 'Float', ''],
+        ['patrol_percentage', 'Float', ''],
+        ['security_risk_level', 'String', '']
+      ],
+      reads: [
+        ['Which sites are short today?', 'site ⇄ guard'],
+        ['What is the risk at Cedar Mall?', 'site ⇄ incident']
+      ]
+    },
+    shift: {
+      label: 'Shift', store: 'shifts', records: 54, group: 'ops',
+      written: 'Bastion core', x: 450, y: 310,
+      fields: [
+        ['shift_id', 'String', 'key'],
+        ['guard_id', 'String', 'fk:guard'],
+        ['start_datetime', 'Timestamp', ''],
+        ['end_datetime', 'Timestamp', ''],
+        ['status', 'String · Scheduled / Completed / Missed', ''],
+        ['cost', 'Float', '']
+      ],
+      reads: [
+        ['Who is free tonight?', 'guard ⇄ shift'],
+        ['What does this shift cost?', 'shift → cost']
+      ]
+    },
+    patrol: {
+      label: 'Patrols', store: 'patrols', records: 8, group: 'ops',
+      written: 'Guard app · NFC gateway', x: 750, y: 510,
+      fields: [
+        ['patrol_id', 'String', 'key'],
+        ['start_time', 'Timestamp', ''],
+        ['end_time', 'Timestamp', ''],
+        ['patrol_completion_rate', 'Float', ''],
+        ['total_patrolling_hours_per_site', 'Float', ''],
+        ['average_patrol_time_per_guard', 'Float', '']
+      ],
+      reads: [
+        ['Which patrols missed today?', 'patrol → completion_rate'],
+        ['Which site logs the most hours?', 'patrol → site']
+      ]
+    },
+    incident: {
+      label: 'Incident', store: 'incidents', records: 5, group: 'ops',
+      written: 'Bastion core · Guard app', x: 750, y: 310,
+      fields: [
+        ['incident_id', 'String', 'key'],
+        ['timestamp', 'Timestamp', ''],
+        ['severity_level', 'String', ''],
+        ['incident_type', 'String', ''],
+        ['description', 'String', ''],
+        ['incident_location', 'String / GeoJSON', ''],
+        ['involved_guard_id', 'String', 'fk:guard']
+      ],
+      reads: [
+        ['What is open right now?', 'incident → site'],
+        ['Did the crawler warn us first?', 'threat → site → incident']
+      ]
+    },
+    payroll: {
+      label: 'Payroll', store: 'payroll', records: 63, group: 'business',
+      written: 'Bastion core · Finances', x: 150, y: 510,
+      fields: [
+        ['payroll_id', 'String', 'key'],
+        ['guard_id', 'String', 'fk:guard'],
+        ['pay_period', 'String', ''],
+        ['gross_salary', 'Float', ''],
+        ['deductions', 'Float', ''],
+        ['bonuses', 'Float', ''],
+        ['net_pay', 'Float', ''],
+        ['payment_status', 'String · Pending / Paid', '']
+      ],
+      reads: [
+        ['What is this officer owed?', 'payroll → guard'],
+        ['Which pay is still pending?', 'payroll → payment_status']
+      ]
+    },
+    threat: {
+      label: 'ExternalThreat', store: 'external_threats', records: 7, group: 'intel',
+      written: 'Crawler · Abuja feeds', x: 750, y: 110,
+      fields: [
+        ['threat_id', 'String', 'key'],
+        ['source_url', 'String', ''],
+        ['threat_type', 'String', ''],
+        ['location_radius', 'String / GeoJSON', ''],
+        ['timestamp', 'Timestamp', '']
+      ],
+      reads: [
+        ['Anything within 1 km of a site?', 'threat ⇄ site'],
+        ['Which shifts sit inside the radius?', 'threat ⇄ shift']
+      ]
+    },
+    report: {
+      label: 'Report', store: 'reports', records: 6, group: 'intel',
+      written: "Napoleon · automated email", x: 450, y: 510,
+      fields: [
+        ['report_id', 'String', 'key'],
+        ['report_type', 'String · Attendance / Patrol / Financial / Incident', ''],
+        ['generated_date', 'Timestamp', ''],
+        ['recipient_email', 'String', ''],
+        ['status', 'String · Sent / Failed', '']
+      ],
+      reads: [
+        ['What did Napoleon send this week?', 'report → generated_date'],
+        ['Which sends failed?', 'report → status']
+      ]
+    }
+  };
+
+  /* Relationships. c = optional curve control point. */
+  var R = [
+    ['client', 'site', 'OWNS_SITE', '1 : n'],
+    ['guard', 'site', 'ASSIGNED_TO', 'n : 1'],
+    ['guard', 'shift', 'SCHEDULED_ON', 'n : 1'],
+    ['shift', 'site', 'OCCURS_AT', 'n : 1'],
+    ['shift', 'patrol', 'COVERS', '1 : n'],
+    ['guard', 'payroll', 'RECEIVES_PAY', '1 : n'],
+    ['payroll', 'shift', 'COSTED_FROM', 'n : 1'],
+    ['guard', 'incident', 'INVOLVED_IN', '1 : n', [450, 452]],
+    ['incident', 'site', 'OCCURRED_AT', 'n : 1'],
+    ['patrol', 'site', 'PATROLS', 'n : 1'],
+    ['threat', 'site', 'NEAR', 'n : n'],
+    ['threat', 'shift', 'IMPACTS', 'n : n'],
+    ['shift', 'report', 'SUMMARIZED_IN', 'n : n'],
+    ['patrol', 'report', 'SUMMARIZED_IN', 'n : n'],
+    ['incident', 'report', 'SUMMARIZED_IN', 'n : n'],
+    ['payroll', 'report', 'SUMMARIZED_IN', 'n : n']
+  ];
+
+  var PAGES = {
+    guard: 'people.html', client: 'clients.html', site: 'sites.html', shift: 'board.html',
+    patrol: 'patrols.html', incident: 'incidents.html', payroll: 'payroll.html',
+    threat: 'crawler.html', report: 'napoleon.html'
+  };
+
+  var state = { node: 'guard', group: 'all', q: '' };
+  var HW = 76, HH = 26;
+
+  /* where a ray from the node centre leaves its box */
+  function edgePoint(n, tx, ty) {
+    var dx = tx - n.x, dy = ty - n.y;
+    if (!dx && !dy) return { x: n.x, y: n.y };
+    var sx = dx ? HW / Math.abs(dx) : Infinity;
+    var sy = dy ? HH / Math.abs(dy) : Infinity;
+    var s = Math.min(sx, sy);
+    return { x: n.x + dx * s, y: n.y + dy * s };
+  }
+
+  function isDim(k) {
+    var n = E[k];
+    if (state.group !== 'all' && n.group !== state.group) return true;
+    if (state.q) {
+      var hay = n.label + ' ' + n.store + ' ' + n.fields.map(function (f) { return f[0]; }).join(' ');
+      if (hay.toLowerCase().indexOf(state.q) === -1) return true;
+    }
+    return false;
+  }
+
+  function related(k) {
+    return R.filter(function (r) { return r[0] === k || r[1] === k; }).length;
+  }
+
+  function pad2(n) { return (n < 10 ? '0' : '') + n; }
+
+  /* Full registry — every class with every attribute, printed, not hidden behind a click. */
+  function drawRegistry() {
+    var attr = 0;
+    document.getElementById('entGrid').innerHTML = Object.keys(E).map(function (k, i) {
+      var n = E[k];
+      attr += n.fields.length;
+      var fields = n.fields.map(function (f) {
+        var b = '';
+        if (f[2] === 'key') b = '<span class="bd key">key</span>';
+        else if (f[2].indexOf('fk:') === 0) b = '<span class="bd fk">→ ' + f[2].slice(3) + '</span>';
+        return '<div class="reg-f"><span class="fn">' + f[0] + '</span><span class="ft">(' + f[1] + ')</span>' + b + '</div>';
+      }).join('');
+      return '<article class="ent-card' + (isDim(k) ? ' dim' : '') + '">' +
+        '<header class="ent-card-head"><span class="ent-idx">' + pad2(i + 1) + '</span>' +
+          '<span class="ent-card-name">' + n.label + '</span>' +
+          '<span class="ent-card-meta">' + n.records + ' records</span></header>' +
+        '<div class="reg-fields">' + fields + '</div>' +
+        '<footer class="ent-card-foot">' + n.store + ' · ' + n.fields.length + ' attributes</footer>' +
+      '</article>';
+    }).join('');
+    document.getElementById('regCount').textContent =
+      Object.keys(E).length + ' classes · ' + attr + ' attributes';
+
+    document.getElementById('relTable').innerHTML =
+      '<thead><tr><th>#</th><th>Relationship</th><th>Cardinality</th></tr></thead><tbody>' +
+      R.map(function (r, i) {
+        var dim = (isDim(r[0]) && isDim(r[1])) ? ' class="dim"' : '';
+        return '<tr' + dim + '><td class="rn">' + pad2(i + 1) + '</td>' +
+          '<td class="rj"><b>' + E[r[0]].label + '</b> <span>' + r[2] + '</span> <b>' + E[r[1]].label + '</b></td>' +
+          '<td class="rc">' + r[3] + '</td></tr>';
+      }).join('') + '</tbody>';
+    document.getElementById('relCount').textContent =
+      R.length + ' typed joins · every edge names the verb it joins on';
+  }
+
+  function draw() {
+    var svg = document.getElementById('kg');
+    var html = '<defs>' +
+      '<marker id="arw" viewBox="0 0 8 8" refX="7.4" refY="4" markerWidth="7" markerHeight="7" orient="auto">' +
+        '<path d="M0 0 8 4 0 8Z" fill="#a9b8c7"/></marker>' +
+      '<marker id="arwHot" viewBox="0 0 8 8" refX="7.4" refY="4" markerWidth="7" markerHeight="7" orient="auto">' +
+        '<path d="M0 0 8 4 0 8Z" fill="#12395c"/></marker>' +
+      '</defs>';
+
+    R.forEach(function (r) {
+      var a = E[r[0]], b = E[r[1]];
+      var hot = (state.node === r[0] || state.node === r[1]) && !isDim(r[0]) && !isDim(r[1]);
+      var c = r[4] || [(a.x + b.x) / 2, (a.y + b.y) / 2];
+
+      var p1 = edgePoint(a, c[0], c[1]);
+      var p2 = edgePoint(b, c[0], c[1]);
+      var path = 'M' + p1.x.toFixed(1) + ' ' + p1.y.toFixed(1) +
+        ' Q' + c[0] + ' ' + c[1] + ' ' + p2.x.toFixed(1) + ' ' + p2.y.toFixed(1);
+
+      html += '<path class="kg-edge' + (hot ? ' hot' : '') + '" d="' + path +
+        '" marker-end="url(#' + (hot ? 'arwHot' : 'arw') + ')"/>';
+
+      if (hot) {
+        var mx = 0.25 * p1.x + 0.5 * c[0] + 0.25 * p2.x;
+        var my = 0.25 * p1.y + 0.5 * c[1] + 0.25 * p2.y;
+        var w = r[2].length * 5.1 + 6;
+        html += '<rect class="kg-elabel-bg" x="' + (mx - w / 2).toFixed(1) + '" y="' + (my - 9).toFixed(1) +
+          '" width="' + w.toFixed(1) + '" height="12"/>' +
+          '<text class="kg-elabel" x="' + mx.toFixed(1) + '" y="' + (my).toFixed(1) +
+          '" text-anchor="middle">' + r[2] + '</text>';
+      }
+    });
+
+    Object.keys(E).forEach(function (k) {
+      var n = E[k], dim = isDim(k) ? ' dim' : '', on = state.node === k ? ' on' : '';
+      html += '<g class="kg-node' + dim + on + '" data-node="' + k + '" tabindex="0" role="button" aria-label="' +
+        n.label + ' class, ' + n.records + ' records">' +
+        '<rect class="box" x="' + (n.x - HW) + '" y="' + (n.y - 24) + '" width="' + (HW * 2) + '" height="48"/>' +
+        '<text class="n-name" x="' + (n.x - 60) + '" y="' + (n.y - 1) + '">' + n.label + '</text>' +
+        '<text class="n-key" x="' + (n.x - 60) + '" y="' + (n.y + 16) + '">' + n.fields[0][0] + '</text>' +
+        '<text class="n-key" x="' + (n.x + 60) + '" y="' + (n.y + 16) + '" text-anchor="end">' + n.records + '</text>' +
+      '</g>';
+    });
+
+    svg.innerHTML = html;
+  }
+
+  function drawNode() {
+    var k = state.node, n = E[k];
+    document.getElementById('nodeCap').textContent = n.store;
+
+    var fields = n.fields.map(function (f) {
+      var badge = '';
+      if (f[2] === 'key') badge = '<span class="bd key">key</span>';
+      else if (f[2].indexOf('fk:') === 0) badge = '<span class="bd fk">→ ' + f[2].slice(3) + '</span>';
+      return '<tr><td>' + f[0] + badge + '</td><td class="t">' + f[1] + '</td></tr>';
+    }).join('');
+
+    var rels = R.map(function (r) {
+      if (r[0] === k) return { dir: '→', verb: r[2], to: r[1], card: r[3] };
+      if (r[1] === k) return { dir: '←', verb: r[2], to: r[0], card: r[3] };
+      return null;
+    }).filter(Boolean).map(function (l) {
+      return '<button class="rel" type="button" data-jump="' + l.to + '">' +
+        '<span class="dir">' + l.dir + '</span>' +
+        '<span class="verb">' + l.verb + '</span>' +
+        '<b>' + E[l.to].label + '</b>' +
+        '<em>' + l.card + '</em></button>';
+    }).join('');
+
+    document.getElementById('nodePanel').innerHTML =
+      '<div class="ent-head"><span class="ent-name">' + n.label + '</span>' +
+        '<span class="ent-store">' + n.store + '</span>' +
+        '<span class="ent-rec">' + n.records + ' records</span></div>' +
+      '<dl class="kv" style="margin-top:10px">' +
+        '<dt>Written by</dt><dd>' + n.written + '</dd>' +
+        '<dt>Links</dt><dd>' + related(k) + ' relationships</dd>' +
+      '</dl>' +
+      '<div class="lbl" style="display:block;margin:10px 0 2px">Fields</div>' +
+      '<table class="schema"><thead><tr><th>Field</th><th>Type</th></tr></thead><tbody>' + fields + '</tbody></table>' +
+      '<div class="lbl" style="display:block;margin:15px 0 3px">Relationships</div>' +
+      rels +
+      '<div class="lbl" style="display:block;margin:15px 0 3px">Napoleon reads</div>' +
+      n.reads.map(function (r) {
+        return '<a class="read-q" href="napoleon.html">' + r[0] + '<em>' + r[1] + '</em></a>';
+      }).join('');
+
+    document.querySelectorAll('#nodePanel [data-jump]').forEach(function (b) {
+      b.addEventListener('click', function () { select(b.getAttribute('data-jump')); });
+    });
+  }
+
+  function drawList() {
+    var keys = Object.keys(E).filter(function (k) { return !isDim(k); });
+    document.getElementById('graphCount').textContent =
+      (state.group === 'all' && !state.q) ? Object.keys(E).length + ' classes'
+        : keys.length + ' of ' + Object.keys(E).length + ' classes';
+  }
+
+  function select(k) {
+    state.node = k;
+    draw(); drawNode(); drawList();
+  }
+
+  function applyGroup(g) {
+    state.group = g;
+    document.querySelectorAll('[data-group]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.getAttribute('data-group') === g));
+    });
+    if (isDim(state.node)) {
+      var first = Object.keys(E).filter(function (k) { return !isDim(k); })[0];
+      if (first) state.node = first;
+    }
+    draw(); drawNode(); drawList(); drawRegistry();
+  }
+
+  document.querySelectorAll('[data-group]').forEach(function (b) {
+    b.addEventListener('click', function () { applyGroup(b.getAttribute('data-group')); });
+  });
+
+  document.getElementById('q').addEventListener('input', function (e) {
+    state.q = e.target.value.trim().toLowerCase();
+    if (isDim(state.node)) {
+      var first = Object.keys(E).filter(function (k) { return !isDim(k); })[0];
+      if (first) state.node = first;
+    }
+    draw(); drawNode(); drawList(); drawRegistry();
+  });
+
+  document.getElementById('kgWrap').addEventListener('click', function (e) {
+    var g = e.target.closest('.kg-node');
+    if (g) select(g.getAttribute('data-node'));
+  });
+  document.getElementById('kgWrap').addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    var g = e.target.closest('.kg-node');
+    if (g) { e.preventDefault(); select(g.getAttribute('data-node')); }
+  });
+
+  document.getElementById('openRecords').addEventListener('click', function () {
+    location.href = PAGES[state.node] || 'analytics.html';
+  });
+
+  document.getElementById('copySchema').addEventListener('click', function () {
+    var out = { version: 'GMS schema', entities: {}, relationships: [] };
+    Object.keys(E).forEach(function (k) {
+      out.entities[k] = {
+        class: E[k].label,
+        store: E[k].store,
+        fields: E[k].fields.map(function (f) {
+          return { field: f[0], type: f[1], role: f[2] ? f[2].replace('fk:', 'references ') : null };
+        })
+      };
+    });
+    R.forEach(function (r) {
+      out.relationships.push({
+        from: E[r[0]].label, verb: r[2], to: E[r[1]].label, cardinality: r[3]
+      });
+    });
+    var text = JSON.stringify(out, null, 2);
+    if (navigator.clipboard) navigator.clipboard.writeText(text).catch(function () {});
+    toast('Schema copied · 9 classes, ' + R.length + ' relationships', 'copy');
+  });
+
+  draw(); drawNode(); drawList(); drawRegistry();
+})();
+</script>
+</body>
+</html>

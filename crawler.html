@@ -1,0 +1,756 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Crawler · Bastion OS</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="css/console.css">
+<script src="js/splash.js"></script>
+<link rel="stylesheet" href="css/pages.css">
+<style>
+  .cr-body { display: flex; flex-direction: column; gap: 10px; }
+  .cr-body > * { flex: 0 0 auto; }   /* the column scrolls, it never squashes the map */
+
+  /* ---------- the map ---------- */
+  /* --mu is map units per label pixel; set from the rendered width so labels
+     stay ~9px on screen at every window size instead of scaling with the plan */
+  .crmap { position: relative; background: #ffffff; overflow: hidden; width: 100%; }
+  .crmap svg.basemap { display: block; width: 100%; height: auto; --mu: 1; }
+  .crmap .grat { stroke: rgba(18,57,92,.07); stroke-width: 1; fill: none; }
+  .crmap .m-label { font: 500 calc(var(--mu) * 8px)/1 var(--mono); letter-spacing: .18em; fill: #5b6f82; text-transform: uppercase; }
+  .crmap .m-label.water { fill: #7d9ab4; font-style: italic; letter-spacing: .3em; }
+  .crmap .m-label.ferry { fill: #8ba3b8; letter-spacing: .2em; }
+  .crmap .sound text { font: 500 calc(var(--mu) * 7.5px)/1 var(--mono); fill: #a2b1be; letter-spacing: .06em; }
+
+  .crmap .ring { fill: rgba(18,57,92,.022); stroke: rgba(18,57,92,.17); stroke-width: 1; stroke-dasharray: 3 5; }
+  .crmap .ring.on { fill: rgba(18,57,92,.05); stroke: rgba(18,57,92,.5); stroke-width: 1.2; stroke-dasharray: 5 4; }
+  .crmap .ring-lbl { font: 600 7.5px/1 var(--mono); fill: #6b8199; letter-spacing: .16em; }
+
+  .crmap .scode { font: 700 calc(var(--mu) * 10px)/1 var(--mono); letter-spacing: .02em; }
+  .crmap .sname { font: 600 calc(var(--mu) * 9px)/1 var(--mono); fill: #0b2740; letter-spacing: .05em; paint-order: stroke; stroke: #ffffff; stroke-width: calc(var(--mu) * 2.6px); }
+
+  .crmap .tpin { cursor: pointer; }
+  .crmap .tpin .hitA { fill: transparent; }
+  .crmap .tpin .dot { fill: #2b5880; stroke: #ffffff; stroke-width: 1.2; }
+  .crmap .tpin.sel .dot { fill: #0b2740; stroke: #ffffff; stroke-width: 2.2; }
+  .crmap .tpin:hover .dot { stroke: #12395c; stroke-width: 2.4; }
+  .crmap .tpin .halo { fill: rgba(11,39,64,.14); }
+  .crmap .tpin .lead { stroke: #6288a6; stroke-width: 1; stroke-dasharray: 2 3; }
+  .crmap .tpin .tlbl { font: 600 calc(var(--mu) * 9px)/1 var(--mono); fill: #46627c; letter-spacing: .05em; paint-order: stroke; stroke: #ffffff; stroke-width: calc(var(--mu) * 2.6px); }
+  .crmap .tpin.sel .tlbl { fill: #0b2740; }
+  .crmap .tpin .tlbl.dist { font-weight: 500; fill: #6b8199; }
+  .crmap .map-legend { left: auto; right: 12px; }
+  .crmap .map-legend { gap: 4px; }
+  .crmap .lg .el { width: 11px; height: 7px; border: 1px dashed #6b8199; border-radius: 50%; }
+
+  /* ---------- below the map ---------- */
+  .cr-lower { display: grid; grid-template-columns: minmax(0, 350px) minmax(0, 1fr); gap: 10px; align-items: stretch; }
+  .cr-lower > .panel { min-height: 0; }
+  #detail .rec-grid { flex: 1 1 auto; }
+  .cr-diag { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; align-items: stretch; }
+  .cr-list .cl-scroll { max-height: 340px; overflow: auto; }
+
+  .crow {
+    display: grid; grid-template-columns: 42px minmax(0, 1fr) auto;
+    gap: 8px; align-items: center; width: 100%; text-align: left;
+    padding: 8px 10px 8px 11px; border-bottom: 1px solid var(--line-2);
+  }
+  .crow:hover { background: #f8f8f8; }
+  .crow[aria-selected="true"] { background: var(--blue-bg); }
+  .crow .c-time { font: 500 9.5px/1 var(--mono); color: var(--faint); text-align: right; }
+  .crow .c-head { display: block; font-size: 11.5px; font-weight: 500; color: var(--text); line-height: 1.35; }
+  .crow .c-meta { display: block; font: 500 9.5px/1.3 var(--mono); color: var(--muted); margin-top: 3px; }
+  .crow.done .c-head { color: var(--muted); }
+
+  .held-row { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 8px; align-items: center;
+    padding: 6px 10px 6px 11px; border-bottom: 1px solid var(--line-2); }
+  .held-row:last-child { border-bottom: 0; }
+  .held-row .h-time { font: 500 9.5px/1 var(--mono); color: var(--faint); text-align: right; }
+  .held-row .h-head { display: block; font-size: 11px; line-height: 1.35; color: var(--text-2); }
+  .held-row .h-meta { display: block; font: 500 9.5px/1.3 var(--mono); color: var(--faint); margin-top: 2px; }
+  .held-row .h-why { font: 500 9px/1.3 var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: .04em; white-space: nowrap; }
+
+  /* ---------- record ---------- */
+  .rec-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 20px; padding: 11px 14px 13px; }
+  .rec-col { min-width: 0; }
+  .rec-col + .rec-col { border-left: 1px solid var(--line-2); padding-left: 20px; }
+  .d-title { font: 600 14px/1.35 var(--ui); color: var(--text); letter-spacing: -.01em; padding: 0 0 4px; }
+  .quote { font-size: 11.5px; line-height: 1.55; color: var(--text-2); border: 1px solid var(--line); padding: 7px 10px; background: var(--panel-2); }
+  .ev { font-size: 11.5px; line-height: 1.5; color: var(--text-2); }
+  .ev b { color: var(--text); font-weight: 600; }
+  .cr-rule { font: 500 9.5px/1.45 var(--mono); color: var(--muted); padding-top: 5px; }
+  .out-row { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; padding: 4px 0; border-bottom: 1px solid var(--line-2); }
+  .out-row:last-child { border-bottom: 0; }
+  .out-row .o-n { font-size: 11px; color: var(--text); }
+  .out-row .o-m { font: 500 9.5px/1.4 var(--mono); color: var(--faint); white-space: nowrap; }
+  .src-line { font: 500 9.5px/1.5 var(--mono); color: var(--muted); }
+  .rec-col .hstack { padding: 10px 0 4px; }
+  .rec-col .hstack:first-child { padding-top: 0; }
+
+  @media (max-width: 1180px) {
+    .cr-lower { grid-template-columns: minmax(0, 1fr); }
+    .cr-list .cl-scroll { max-height: 320px; }
+  }
+  @media (max-width: 900px) {
+    /* a stacked legend would eat a third of the small map */
+    .crmap .map-legend { left: 8px; right: 8px; bottom: 8px; flex-direction: row; gap: 12px; justify-content: flex-end; padding: 4px 8px; }
+    .cr-diag { grid-template-columns: minmax(0, 1fr); }
+    .rec-grid { grid-template-columns: minmax(0, 1fr); gap: 0; }
+    .rec-col + .rec-col { border-left: 0; padding-left: 0; border-top: 1px solid var(--line-2); margin-top: 8px; padding-top: 8px; }
+  }
+</style>
+</head>
+<body data-nav="crawler" data-crumb="Intelligence" data-here="Crawler">
+<div class="app">
+  <aside data-shell="rail"></aside>
+  <div class="shell">
+    <header data-shell="topbar"></header>
+
+    <div class="page">
+      <div class="page-head">
+        <div class="page-title">Crawler</div>
+        <div class="page-tools">
+          <span class="pill-site" id="passPill">6 feeds · pass 08:44</span>
+          <button class="btn sm" type="button" data-toast="Crawl pass queued · next result at 08:46"><svg class="ic"><use href="#i-refresh"/></svg>Crawl now</button>
+        </div>
+      </div>
+
+      <div class="body cr-body">
+        <section class="kpis" aria-label="Crawl pass">
+          <div class="kpi"><div class="k-label"><span class="micro">Entries read</span></div><div class="k-val" id="kRead">76</div><div class="k-sub" id="kReadSub">6 feeds · pass 08:44</div></div>
+          <div class="kpi"><div class="k-label"><span class="micro">Crime matched</span></div><div class="k-val" id="kMatch">14</div><div class="k-sub" id="kMatchSub">62 with no crime type</div></div>
+          <div class="kpi"><div class="k-label"><span class="micro">Located</span></div><div class="k-val" id="kLoc">9</div><div class="k-sub" id="kLocSub">5 with no location</div></div>
+          <div class="kpi flag"><div class="k-label"><span class="micro">New threats</span></div><div class="k-val" id="kNewThreats">4</div><div class="k-sub" id="kNewSub">3 merged into an existing record</div></div>
+          <div class="kpi"><div class="k-label"><span class="micro">Held back</span></div><div class="k-val" id="kHeld">69</div><div class="k-sub" id="kHeldSub">62 no type · 5 no place · 2 undated</div></div>
+        </section>
+
+        <section class="panel" aria-label="Threat map">
+          <div class="panel-head">
+            <h2>Threat map</h2>
+            <span class="cap" id="mapCap">7 threats · 8 sites · 2 km watch</span>
+            <div class="panel-tools"><span class="chip info" id="mapFocus">—</span></div>
+          </div>
+          <div class="crmap" id="crmap">
+            <svg class="basemap" id="crSvg" viewBox="0 0 1000 400" role="img" aria-label="Crawled threats plotted against the sites they fall near">
+              <defs><clipPath id="crClip"><rect x="0" y="0" width="1000" height="400"/></clipPath></defs>
+              <rect x="0" y="0" width="1000" height="400" fill="#ffffff"/>
+              <g class="grat" id="grat"></g>
+
+              <g clip-path="url(#crClip)">
+                <g transform="translate(0,50) scale(1,0.6) translate(0,-100)">
+                  <!-- street fabric, drawn under the water so the coast stays clean -->
+                  <g id="streets" stroke="#e7eef6" stroke-width="1" fill="none"></g>
+
+                  <!-- harbour, lagoon, atlantic -->
+                  <path d="M188 300 C300 288 400 300 500 292 C600 284 700 292 792 306 L792 500 C710 512 620 500 520 506 C420 512 320 500 240 508 C216 511 198 507 188 500 Z" fill="#d9e8f5" stroke="#a9c4dc" stroke-width="1"/>
+                  <path d="M0 452 L188 452 L188 500 C140 512 70 524 0 528 Z" fill="#d9e8f5" stroke="#a9c4dc" stroke-width="1"/>
+                  <path d="M792 306 C840 316 900 330 1000 332 L1000 420 C930 418 860 406 792 396 Z" fill="#d9e8f5" stroke="#a9c4dc" stroke-width="1"/>
+                  <rect x="0" y="541" width="1000" height="220" fill="#d9e8f5"/>
+                  <path d="M0 540 L1000 534" stroke="#a9c4dc" stroke-width="1.2" stroke-width="1" fill="none"/>
+                  <path d="M0 596 C180 590 300 610 470 602 C660 594 850 612 1000 604" stroke="#c6d7e6" stroke-width="1" fill="none"/>
+                  <path d="M0 664 C220 656 360 678 520 670 C700 662 860 682 1000 674" stroke="#c6d7e6" stroke-width="1" fill="none"/>
+                  <path d="M150 640 L860 616" stroke="#9dbdd8" stroke-width="1" stroke-dasharray="4 6" fill="none"/>
+
+                  <!-- islands -->
+                  <path d="M545 382 L700 388 L714 424 L556 428 Z" fill="#f2f7fc" stroke="#a9c4dc" stroke-width="1.2"/>
+                  <path d="M472 428 L648 424 L664 540 L472 536 Z" fill="#f2f7fc" stroke="#a9c4dc" stroke-width="1.2"/>
+                  <path d="M692 432 L900 420 L946 506 L702 524 Z" fill="#f2f7fc" stroke="#a9c4dc" stroke-width="1.2"/>
+
+                  <!-- built blocks -->
+                  <g fill="#e9eff6">
+                    <rect x="236" y="150" width="46" height="34"/><rect x="290" y="150" width="60" height="34"/>
+                    <rect x="236" y="192" width="46" height="46"/><rect x="290" y="192" width="30" height="46"/>
+                    <rect x="330" y="192" width="58" height="46"/><rect x="410" y="140" width="52" height="40"/>
+                    <rect x="470" y="140" width="64" height="40"/><rect x="470" y="188" width="40" height="52"/>
+                    <rect x="600" y="140" width="58" height="44"/><rect x="666" y="140" width="44" height="44"/>
+                    <rect x="600" y="192" width="110" height="40"/><rect x="840" y="180" width="80" height="52"/>
+                    <rect x="60" y="330" width="70" height="40"/><rect x="60" y="378" width="52" height="46"/>
+                    <rect x="860" y="330" width="72" height="46"/>
+                    <rect x="44" y="88" width="78" height="30"/><rect x="44" y="126" width="42" height="34"/>
+                    <rect x="136" y="94" width="56" height="28"/><rect x="136" y="130" width="86" height="26"/>
+                    <rect x="700" y="70" width="62" height="30"/><rect x="774" y="70" width="46" height="30"/>
+                    <rect x="700" y="108" width="120" height="26"/><rect x="330" y="104" width="74" height="26"/>
+                    <rect x="40" y="212" width="52" height="24"/><rect x="116" y="248" width="66" height="30"/>
+                    <rect x="900" y="250" width="72" height="40"/>
+                    <!-- denser fabric: estate blocks, warehouse rows, terminal yards -->
+                    <rect x="200" y="92" width="30" height="22"/><rect x="246" y="92" width="44" height="22"/>
+                    <rect x="200" y="126" width="52" height="26"/><rect x="262" y="126" width="30" height="26"/>
+                    <rect x="352" y="140" width="34" height="20"/><rect x="352" y="168" width="20" height="20"/>
+                    <rect x="524" y="104" width="32" height="22"/><rect x="566" y="104" width="26" height="22"/>
+                    <rect x="524" y="136" width="26" height="30"/><rect x="560" y="136" width="34" height="30"/>
+                    <rect x="700" y="150" width="36" height="22"/><rect x="746" y="150" width="22" height="22"/>
+                    <rect x="800" y="120" width="30" height="26"/><rect x="840" y="120" width="44" height="26"/>
+                    <rect x="28" y="150" width="30" height="20"/><rect x="66" y="178" width="44" height="20"/>
+                    <rect x="120" y="196" width="34" height="18"/><rect x="160" y="164" width="30" height="22"/>
+                    <rect x="300" y="220" width="40" height="20"/><rect x="352" y="222" width="26" height="18"/>
+                    <rect x="756" y="188" width="34" height="24"/>
+                  </g>
+
+                  <!-- airport runway -->
+                  <g stroke="#dfe7ef" stroke-width="1" fill="#f2f6fa">
+                    <rect x="704" y="58" width="118" height="11" transform="rotate(-4 704 58)"/>
+                  </g>
+
+                  <!-- roads -->
+                  <g stroke="#cfd9e3" stroke-width="1" fill="none">
+                    <path d="M0 236 L1000 250"/><path d="M0 214 L1000 228" stroke="#e2e8ee"/>
+                    <path d="M236 60 L236 300"/><path d="M420 60 L424 300"/>
+                    <path d="M600 60 L600 236"/><path d="M836 60 L836 300"/>
+                    <path d="M0 176 L236 176M420 176 L600 176M836 176 L1000 176" stroke="#d9e1e9"/>
+                    <path d="M0 430 L150 426"/><path d="M0 74 L1000 76" stroke="#e2e8ee"/>
+                    <path d="M128 60 L128 240" stroke="#d9e1e9"/><path d="M700 60 L700 220" stroke="#d9e1e9"/>
+                    <path d="M906 60 L906 300" stroke="#d9e1e9"/>
+                  </g>
+
+                  <!-- bridges -->
+                  <g stroke="#7d9dbd" stroke-width="2" fill="none">
+                    <path d="M548 300 L592 380"/><path d="M618 428 L610 424"/>
+                    <path d="M664 470 L700 452"/><path d="M794 352 L860 420"/>
+                  </g>
+                </g>
+              </g>
+
+              <!-- district labels, placed in map space -->
+              <g class="m-label">
+                <text x="300" y="56" text-anchor="middle">LAGOS MAINLAND</text>
+                <text x="308" y="112" text-anchor="middle">YABA</text>
+                <text x="640" y="34" text-anchor="middle">IKEJA</text>
+                <text x="176" y="152" text-anchor="middle">SURULERE</text>
+                <text x="88" y="166" text-anchor="middle">APAPA</text>
+                <text x="180" y="86" text-anchor="middle">OSHODI</text>
+                <text x="524" y="176" text-anchor="middle" class="m-label water">LAGOS HARBOUR</text>
+                <text x="636" y="232" text-anchor="middle">IKOYI</text>
+                <text x="502" y="292" text-anchor="middle">VICTORIA ISLAND</text>
+                <text x="808" y="272" text-anchor="middle">LEKKI</text>
+                <text x="936" y="212" text-anchor="middle">AJAH</text>
+                <text x="500" y="374" text-anchor="middle" class="m-label water">ATLANTIC</text>
+                <text x="300" y="346" text-anchor="middle" class="m-label ferry">FERRY · ILAJE → VI</text>
+              </g>
+
+              <g class="sound">
+                <text x="196" y="356">14</text>
+                <text x="352" y="386">18</text>
+                <text x="622" y="368">22</text>
+                <text x="868" y="352">16</text>
+                <text x="762" y="388">24</text>
+              </g>
+
+              <g id="rings"></g>
+              <g id="sitesLayer"></g>
+              <g id="threatLayer"></g>
+
+              <!-- scale + north -->
+              <g transform="translate(26 372)">
+                <path d="M0 0 H68" stroke="#8794a2" stroke-width="1" fill="none"/>
+                <path d="M0 -3 V3 M34 -3 V3 M68 -3 V3" stroke="#8794a2" stroke-width="1"/>
+                <text class="m-label" x="0" y="14">0</text>
+                <text class="m-label" x="52" y="14">2 KM</text>
+              </g>
+              <g transform="translate(952 36)">
+                <path d="M0 -11 L-4 -1 L4 -1 Z" fill="#12395c"/>
+                <path d="M0 11 V0" stroke="#8794a2" stroke-width="1" fill="none"/>
+                <text class="m-label" x="0" y="22" text-anchor="middle">N</text>
+              </g>
+            </svg>
+
+            <div class="map-readout">
+              <span>WGS 84</span>
+              <span id="mapCoords">—</span>
+            </div>
+            <div class="map-legend" aria-label="Map legend">
+              <div class="lg"><span class="sw" style="background:#2b5880"></span>Threat</div>
+              <div class="lg"><span class="sw" style="background:#0b2740;box-shadow:0 0 0 2px rgba(11,39,64,.18)"></span>Selected</div>
+              <div class="lg"><span class="sw" style="background:#ffffff;border:1px solid #9db4c8"></span>Site</div>
+              <div class="lg"><span class="el"></span>Watch 2 km</div>
+            </div>
+          </div>
+        </section>
+
+        <div class="cr-lower">
+          <section class="panel cr-list" aria-label="Crawled threats">
+            <div class="panel-head">
+              <h2>Threats</h2><span class="cap" id="listCap">7 in 48 h</span>
+              <div class="panel-tools">
+                <div class="seg" role="group" aria-label="Filter threats">
+                  <button type="button" aria-pressed="true" data-f="all">All</button>
+                  <button type="button" aria-pressed="false" data-f="New">New</button>
+                  <button type="button" aria-pressed="false" data-f="Watching">Watching</button>
+                  <button type="button" aria-pressed="false" data-f="Sent">Sent</button>
+                  <button type="button" aria-pressed="false" data-f="Dismissed">Dismissed</button>
+                </div>
+              </div>
+            </div>
+            <div style="padding:7px 8px;border-bottom:1px solid var(--line);background:var(--panel-2)">
+              <label class="field">
+                <svg class="ic"><use href="#i-search"/></svg>
+                <input type="text" id="q" placeholder="Headline, site, area or outlet" aria-label="Search threats">
+              </label>
+            </div>
+            <div class="cl-scroll" id="list" role="listbox" aria-label="Crawled threats"></div>
+            <div class="panel-foot"><span id="foot">5 open · 1 dismissed</span></div>
+          </section>
+
+          <section class="panel" id="detail" aria-label="Threat record">
+            <div class="panel-head">
+              <h2>Threat</h2>
+              <span class="cap" id="dId">—</span>
+              <div class="panel-tools"><span class="chip" id="dState">—</span></div>
+            </div>
+            <div class="rec-metrics">
+              <div class="rec-metric"><div class="m-lbl">Site</div><div class="m-val" id="dSite" style="font-size:11px">—</div></div>
+              <div class="rec-metric"><div class="m-lbl">Distance</div><div class="m-val" id="dDist" style="font-size:12px">—</div></div>
+              <div class="rec-metric"><div class="m-lbl">Region</div><div class="m-val" id="dRegion" style="font-size:12px">—</div></div>
+              <div class="rec-metric"><div class="m-lbl">Captured</div><div class="m-val" id="dTime" style="font-size:12px">—</div></div>
+            </div>
+
+            <div class="rec-grid">
+              <div class="rec-col">
+                <div class="d-title" id="dHead">—</div>
+                <div class="hstack"><span class="lbl">Summary</span><span class="right src-line" id="dSource">—</span></div>
+                <div class="quote" id="dBody">—</div>
+
+                <div class="hstack"><span class="lbl">Threat type</span><span class="right src-line">title + summary</span></div>
+                <div class="ev"><b id="dCrime">—</b><span id="dKw">—</span></div>
+                <div class="cr-rule" id="dRule">—</div>
+
+                <div class="hstack"><span class="lbl">Location</span><span class="right src-line" id="dPrec">—</span></div>
+                <dl class="kv" style="grid-template-columns:78px minmax(0,1fr)" id="dGeo"></dl>
+              </div>
+
+              <div class="rec-col">
+                <div class="hstack"><span class="lbl">Nearest site</span><span class="right src-line">watch radius 2 km</span></div>
+                <dl class="kv" style="grid-template-columns:78px minmax(0,1fr)" id="dSiteKv"></dl>
+
+                <div class="hstack"><span class="lbl">Sources</span><span class="right src-line" id="dOutCap">—</span></div>
+                <div id="dOutlets"></div>
+                <div class="cr-rule" id="dMerge">—</div>
+
+                <div id="dLinkWrap" style="display:none">
+                  <div class="hstack"><span class="lbl">Linked record</span></div>
+                  <div class="src-line" id="dLink" style="font-size:11px"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="actbar" style="display:flex;gap:6px;align-items:center;padding:7px 10px;border-top:1px solid var(--line);background:var(--panel);margin-top:auto">
+              <button class="btn sm" type="button" id="watch">Watch</button>
+              <button class="btn sm primary" type="button" id="send">Send to alerts</button>
+              <button class="btn sm ghost" type="button" id="dismiss">Dismiss</button>
+              <span class="right src-line" id="dFoot">—</span>
+            </div>
+          </section>
+        </div>
+
+        <div class="cr-diag">
+          <section class="panel">
+            <div class="panel-head"><h2>Held back</h2><span class="cap" id="heldCap">4 of 69</span></div>
+            <div id="held"></div>
+            <div class="panel-foot"><span id="heldFoot">62 no crime type · 5 no location · 2 unreadable date</span></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head"><h2>Feeds</h2><span class="cap">6</span></div>
+            <table class="tbl compact">
+              <thead><tr><th>Outlet</th><th class="n" style="width:44px">Pass</th><th class="n" style="width:36px">Read</th><th class="n" style="width:52px">Matched</th></tr></thead>
+              <tbody id="feeds"></tbody>
+            </table>
+            <div class="panel-foot"><span id="feedFoot">76 read · 14 matched</span></div>
+          </section>
+        </div>
+      </div>
+
+      <footer data-shell="status"></footer>
+    </div>
+  </div>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/shell.js"></script>
+<script>
+(function () {
+  boardStore.apply();
+  var run = B.crawlRun;
+  var state = {};                                   /* id → triage state, session only */
+  var current = new URLSearchParams(location.search).get('id') || null;
+  var filter = 'all', q = '';
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+  function siteName(k) { return (B.site(k) || { name: '—' }).name; }
+  function reports() {
+    return B.crawler.map(function (c) {
+      var r = {};
+      for (var k in c) r[k] = c[k];
+      r.state = state[c.id] || c.state;
+      return r;
+    });
+  }
+  function chipFor(s) { return s === 'New' ? 'bad' : s === 'Watching' ? 'warn' : s === 'Sent' ? 'info' : ''; }
+  function openCount() { return reports().filter(function (c) { return c.state === 'New' || c.state === 'Watching'; }).length; }
+  function pick(id) { return reports().filter(function (c) { return c.id === id; })[0]; }
+
+  /* summary band · the pass, not the page */
+  document.getElementById('passPill').textContent = run.feeds + ' feeds · pass ' + run.pass;
+  document.getElementById('kRead').textContent = run.read;
+  document.getElementById('kReadSub').textContent = run.feeds + ' feeds · pass ' + run.pass;
+  document.getElementById('kMatch').textContent = run.matched;
+  document.getElementById('kMatchSub').textContent = run.noType + ' with no crime type';
+  document.getElementById('kLoc').textContent = run.located;
+  document.getElementById('kLocSub').textContent = run.noPlace + ' with no location';
+  document.getElementById('kNewThreats').textContent = run.stored;
+  document.getElementById('kNewSub').textContent = run.merged + ' merged into an existing record';
+  document.getElementById('kHeld').textContent = run.noType + run.noPlace + run.undated;
+  document.getElementById('kHeldSub').textContent =
+    run.noType + ' no type · ' + run.noPlace + ' no place · ' + run.undated + ' undated';
+
+  function visible() {
+    return reports().filter(function (c) {
+      if (filter !== 'all' && c.state !== filter) return false;
+      if (q) {
+        var hay = (c.head + ' ' + c.area + ' ' + c.source + ' ' + c.crime + ' ' + c.id + ' ' + siteName(c.site)).toLowerCase();
+        if (hay.indexOf(q) === -1) return false;
+      }
+      return true;
+    });
+  }
+
+  function paintCounts() {
+    var all = reports();
+    document.getElementById('foot').textContent =
+      openCount() + ' open · ' + all.filter(function (c) { return c.state === 'Dismissed'; }).length + ' dismissed';
+    var railCount = document.querySelector('.rail-item[href="crawler.html"] .count');
+    if (railCount) railCount.textContent = all.filter(function (c) { return c.state === 'New'; }).length;
+  }
+
+  function paintList() {
+    var list = visible();
+    document.getElementById('list').innerHTML = list.length ? list.map(function (c) {
+      return '<button class="crow' + (c.state === 'Dismissed' || c.state === 'Sent' ? ' done' : '') + '" type="button" role="option" ' +
+        'aria-selected="' + (c.id === current) + '" data-c="' + c.id + '">' +
+        '<span class="c-time">' + c.t + '</span>' +
+        '<span style="min-width:0"><span class="c-head">' + esc(c.head) + '</span>' +
+          '<span class="c-meta">' + (c.day ? c.day + ' · ' : '') + esc(siteName(c.site)) + ' · ' + c.dist + ' · ' + esc(c.source) + '</span></span>' +
+        '<span><span class="chip ' + chipFor(c.state) + '">' + c.state + '</span></span>' +
+      '</button>';
+    }).join('') : '<div class="empty"><strong>No threat matches</strong>Clear the filter or try another site.</div>';
+    document.getElementById('listCap').textContent = list.length + (filter === 'all' && !q ? ' in 48 h' : ' shown');
+  }
+
+  /* ---------- the map ----------
+     Geography sits in the same compressed plan as the Sites screen
+     (y' = 0.6y − 10), so a site holds the same place on both maps. */
+  var KM = 34, YS = 0.6;
+  function plateY(y) { return YS * y - 10; }
+
+  /* district labels as drawn in the base map: x, y, text */
+  var DISTRICT = [
+    [300, 56, 'LAGOS MAINLAND'], [308, 112, 'YABA'], [640, 34, 'IKEJA'],
+    [176, 152, 'SURULERE'], [88, 166, 'APAPA'], [180, 86, 'OSHODI'],
+    [524, 176, 'LAGOS HARBOUR'], [636, 232, 'IKOYI'], [502, 292, 'VICTORIA ISLAND'],
+    [808, 272, 'LEKKI'], [936, 212, 'AJAH'], [500, 374, 'ATLANTIC'], [300, 346, 'FERRY']
+  ];
+
+  /* threats that share a site fan out on the golden angle, so two reports
+     at one site never land on the same dot */
+  var groups = {};
+  B.crawler.forEach(function (c) { (groups[c.site] = groups[c.site] || []).push(c.id); });
+  function angleFor(c) {
+    var g = groups[c.site] || [c.id];
+    var phase = 0;
+    for (var i = 0; i < c.site.length; i++) phase += c.site.charCodeAt(i);
+    return (((g.indexOf(c.id) * 137.5) + (phase % 40)) * Math.PI) / 180;
+  }
+  function plot(c) {
+    var s = B.site(c.site) || B.sites[0];
+    var a = angleFor(c);
+    var r = Math.max(c.km * KM, 26);
+    return { s: s, sx: s.x, sy: plateY(s.y), x: s.x + Math.cos(a) * r, y: plateY(s.y) + Math.sin(a) * r * YS };
+  }
+
+  /* label boxes, pushed down or up until they clear each other.
+     Sizes are given in screen px and divided by MAPK, so the spacing holds
+     at every width instead of collapsing when the plan is scaled down. */
+  var MAPK = 1;
+  function px(v) { return v / MAPK; }
+  function overlaps(a, b) {
+    return a[0] < b[0] + b[2] && b[0] < a[0] + a[2] && a[1] < b[1] + b[3] && b[1] < a[1] + a[3];
+  }
+  var SHIFT_PX = [0, 12, -12, 24, -24, 36, -36, 48];
+
+  function paintMap() {
+    var list = visible();
+    var sel = pick(current);
+    var rings = '', sites = '', threats = '';
+
+    /* one watch radius, on the site the open report belongs to */
+    if (sel) {
+      var sp = plot(sel);
+      rings = '<ellipse class="ring on" cx="' + sp.sx + '" cy="' + sp.sy + '" rx="' + (2 * KM) + '" ry="' + (2 * KM * YS) + '"/>';
+    }
+
+    var taken = B.sites.map(function (s) {
+      return [s.x - 14, plateY(s.y) - 10, 28, 21];
+    });
+    /* district names are part of the base map, so labels route around them too */
+    DISTRICT.forEach(function (d) {
+      var w = d[2].length * px(6.2);
+      taken.push([d[0] - w / 2, d[1] - px(8), w, px(10)]);
+    });
+
+    B.sites.forEach(function (s) {
+      var sy = plateY(s.y);
+      var on = sel && sel.site === s.key;
+      sites += '<g>' +
+        '<rect x="' + (s.x - 12) + '" y="' + (sy - 8) + '" width="24" height="17" fill="' + (on ? '#0b2740' : '#ffffff') + '" stroke="' + (on ? '#0b2740' : '#9db4c8') + '"/>' +
+        '<text class="scode" x="' + s.x + '" y="' + (sy + 4) + '" text-anchor="middle" style="fill:' + (on ? '#ffffff' : '#3f5770') + '">' + s.code + '</text>';
+      if (on) {
+        var p = plot(sel);
+        var below = p.y <= sy;               /* label on the side away from the pin */
+        var ny = below ? sy + 8 + px(16) : sy - 8 - px(12);
+        sites += '<text class="sname" x="' + s.x + '" y="' + ny + '" text-anchor="middle">' + esc(s.name) + '</text>';
+        var nw = s.name.length * px(5.4);
+        taken.push([s.x - nw / 2, ny - px(9), nw, px(11)]);
+      }
+      sites += '</g>';
+    });
+
+    /* the selected report gets first pick of space, then the rest */
+    var order = list.slice().sort(function (a, b) {
+      return (b.id === current ? 1 : 0) - (a.id === current ? 1 : 0);
+    });
+    var placed = [];
+
+    order.forEach(function (c) {
+      var p = plot(c);
+      var isSel = c.id === current;
+      var right = p.x < 800;
+      var gap = px(isSel ? 13 : 9);
+      var lx = right ? p.x + gap : p.x - gap;
+      var anchor = right ? 'start' : 'end';
+      var label = c.crime;
+      var w = label.length * px(5.4);
+      var bx = anchor === 'start' ? lx : lx - w;
+
+      var ly = p.y - px(9);
+      for (var i = 0; i < SHIFT_PX.length; i++) {
+        var box = [bx, p.y - px(9) + px(SHIFT_PX[i]) - px(7), w, px(11)];
+        var hits = taken.some(function (t) { return overlaps(box, t); });
+        if (!hits) { ly = p.y - px(9) + px(SHIFT_PX[i]); taken.push(box); break; }
+      }
+
+      taken.push([p.x - px(7), p.y - px(7), px(14), px(14)]);
+      placed.push({ c: c, p: p, isSel: isSel, lx: lx, ly: ly, anchor: anchor });
+    });
+
+    placed.sort(function (a, b) { return (a.isSel ? 1 : 0) - (b.isSel ? 1 : 0); }).forEach(function (o) {
+      var c = o.c, p = o.p, isSel = o.isSel, lx = o.lx, ly = o.ly, anchor = o.anchor;
+      threats += '<g class="tpin' + (isSel ? ' sel' : '') + '" data-c="' + c.id + '" tabindex="0" role="button" ' +
+          'aria-label="' + esc(c.crime + ', ' + c.head + ', ' + c.dist + ' from ' + siteName(c.site)) + '">' +
+        '<title>' + esc(c.crime + ' · ' + c.head) + '</title>' +
+        '<circle class="hitA" cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="' + px(14).toFixed(1) + '"/>' +
+        (isSel
+          ? '<line class="lead" x1="' + p.sx + '" y1="' + p.sy + '" x2="' + p.x.toFixed(1) + '" y2="' + p.y.toFixed(1) + '"/>' +
+            '<circle class="halo" cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="12"/>'
+          : '') +
+        '<circle class="dot" cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="' + (isSel ? 6 : 4.6) + '"/>' +
+        '<text class="tlbl" x="' + lx.toFixed(1) + '" y="' + ly.toFixed(1) + '" text-anchor="' + anchor + '">' + esc(c.crime) + '</text>' +
+        (isSel ? '<text class="tlbl dist" x="' + lx.toFixed(1) + '" y="' + (ly + px(12)).toFixed(1) + '" text-anchor="' + anchor + '">' + c.dist + ' from site</text>' : '') +
+      '</g>';
+    });
+
+    document.getElementById('rings').innerHTML = rings;
+    document.getElementById('sitesLayer').innerHTML = sites;
+    document.getElementById('threatLayer').innerHTML = threats;
+
+    document.getElementById('mapCap').textContent = list.length + ' shown · 8 sites · 2 km watch';
+    var focus = document.getElementById('mapFocus');
+    if (sel) {
+      var psite = B.site(sel.site) || {};
+      focus.textContent = psite.code + ' · ' + sel.dist;
+      focus.style.display = '';
+    } else {
+      focus.style.display = 'none';
+    }
+    document.getElementById('mapCoords').textContent = sel ? sel.coords : '—';
+    document.getElementById('crSvg').setAttribute('aria-label',
+      list.length + ' crawled threats plotted across 8 sites' + (sel ? '; selected ' + sel.crime + ' ' + sel.dist + ' from ' + siteName(sel.site) : ''));
+  }
+
+  function repaint() { paintList(); paintMap(); paintCounts(); }
+
+  /* if a filter hides the open record, follow the filter instead of
+     leaving a threat on screen that the list no longer shows */
+  function refilter() {
+    var v = visible();
+    if (v.length && !v.some(function (c) { return c.id === current; })) paintDetail(v[0].id);
+    else repaint();
+  }
+
+  function paintDetail(id) {
+    var c = pick(id);
+    if (!c) return;
+    current = id;
+    document.getElementById('dHead').textContent = c.head;
+    document.getElementById('dId').textContent = c.id;
+    var st = document.getElementById('dState');
+    st.className = 'chip ' + chipFor(c.state);
+    st.textContent = c.state;
+    document.getElementById('dSite').textContent = siteName(c.site);
+    document.getElementById('dDist').textContent = c.dist;
+    document.getElementById('dRegion').textContent = c.region;
+    document.getElementById('dTime').textContent = (c.day ? c.day + ' ' : '') + c.t;
+
+    document.getElementById('dSource').textContent = 'Stored from ' + c.source + ' · ' + c.t;
+    document.getElementById('dBody').textContent = c.body;
+
+    document.getElementById('dCrime').textContent = c.crime;
+    document.getElementById('dKw').textContent = ' · matched “' + c.kw + '”';
+    document.getElementById('dRule').textContent = 'Rule · keyword sets for robbery, kidnapping, murder, cultism, theft, fraud, armed attack';
+
+    document.getElementById('dPrec').textContent = c.precision;
+    document.getElementById('dGeo').innerHTML =
+      '<dt>State</dt><dd>' + esc(c.region) + '</dd>' +
+      (c.lga ? '<dt>LGA</dt><dd>' + esc(c.lga) + '</dd>' : '') +
+      (c.town ? '<dt>Town</dt><dd>' + esc(c.town) + '</dd>' : '') +
+      '<dt>Coords</dt><dd>' + esc(c.coords) + '</dd>';
+
+    var site = B.site(c.site) || {};
+    document.getElementById('dSiteKv').innerHTML =
+      '<dt>Coverage</dt><dd>' + (B.onPost(c.site) || 0) + ' of ' + (site.posts || '—') + ' posts held</dd>' +
+      '<dt>Patrols</dt><dd>' + (site.patrols || '—') + '% on time this week</dd>' +
+      '<dt>Geofence</dt><dd>' + (site.geo || '—') + ' radius</dd>';
+
+    document.getElementById('dOutCap').textContent = c.outlets.length + (c.outlets.length === 1 ? ' outlet' : ' outlets');
+    document.getElementById('dOutlets').innerHTML = c.outlets.map(function (o) {
+      return '<div class="out-row"><span class="o-n">' + esc(o.outlet) + '</span>' +
+        '<span class="o-m">' + o.t + ' · ' + esc(o.url.replace(/^https?:\/\//, '')) + '</span></div>';
+    }).join('');
+    document.getElementById('dMerge').textContent = c.outlets.length > 1
+      ? 'Merged · same threat type, state and area within 2 days · ' + (c.outlets.length - 1) + ' source row added to one incident'
+      : 'Stored · first outlet to report it';
+
+    var lw = document.getElementById('dLinkWrap');
+    if (c.link) {
+      lw.style.display = '';
+      document.getElementById('dLink').innerHTML = '<a href="' + c.link.href + '" style="text-decoration:underline">' + esc(c.link.label) + '</a>';
+    } else {
+      lw.style.display = 'none';
+    }
+
+    document.getElementById('watch').textContent = c.state === 'Watching' ? 'Stop watching' : 'Watch';
+    document.getElementById('watch').disabled = c.state === 'Sent' || c.state === 'Dismissed';
+    document.getElementById('send').textContent = c.state === 'Sent' ? 'Sent to alerts' : 'Send to alerts';
+    document.getElementById('send').disabled = c.state === 'Sent' || c.state === 'Dismissed';
+    document.getElementById('dismiss').textContent = c.state === 'Dismissed' ? 'Restore' : 'Dismiss';
+    document.getElementById('dFoot').textContent = c.state === 'New' ? 'unread' : c.state.toLowerCase();
+    repaint();
+  }
+
+  function act(next, msg) {
+    var c = pick(current);
+    if (!c) return;
+    state[current] = next;
+    paintDetail(current);
+    if (msg) toast(msg, 'check');
+  }
+
+  /* list + map share one selection */
+  function select(id) { paintDetail(id); }
+
+  document.getElementById('list').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-c]');
+    if (b) select(b.getAttribute('data-c'));
+  });
+
+  var svg = document.getElementById('crSvg');
+  svg.addEventListener('click', function (e) {
+    var g = e.target.closest('[data-c]');
+    if (g) select(g.getAttribute('data-c'));
+  });
+  svg.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    var g = e.target.closest('[data-c]');
+    if (!g) return;
+    e.preventDefault();
+    select(g.getAttribute('data-c'));
+  });
+
+  document.querySelectorAll('[data-f]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      document.querySelectorAll('[data-f]').forEach(function (x) { x.setAttribute('aria-pressed', 'false'); });
+      b.setAttribute('aria-pressed', 'true');
+      filter = b.getAttribute('data-f');
+      refilter();
+    });
+  });
+  document.getElementById('q').addEventListener('input', function (e) {
+    q = e.target.value.trim().toLowerCase();
+    refilter();
+  });
+  document.getElementById('watch').addEventListener('click', function () {
+    var c = pick(current);
+    act(c.state === 'Watching' ? 'New' : 'Watching', c.state === 'Watching' ? 'Removed from watching' : 'Watching · ' + c.id);
+  });
+  document.getElementById('send').addEventListener('click', function () {
+    act('Sent', current + ' forwarded to the duty manager');
+  });
+  document.getElementById('dismiss').addEventListener('click', function () {
+    var c = pick(current);
+    act(c.state === 'Dismissed' ? 'New' : 'Dismissed', c.state === 'Dismissed' ? 'Restored · ' + current : 'Dismissed · ' + current);
+  });
+
+  /* feeds · read + matched sum to the pass totals */
+  document.getElementById('feeds').innerHTML = run.sources.map(function (s) {
+    return '<tr><td class="name">' + esc(s.name) + '</td><td class="n">' + s.t + '</td>' +
+      '<td class="n">' + s.read + '</td><td class="n">' + s.matched + '</td></tr>';
+  }).join('');
+  document.getElementById('feedFoot').textContent = run.read + ' read · ' + run.matched + ' matched';
+  document.getElementById('heldCap').textContent = run.held.length + ' of ' + (run.noType + run.noPlace + run.undated);
+  document.getElementById('heldFoot').textContent =
+    run.noType + ' no crime type · ' + run.noPlace + ' no location · ' + run.undated + ' unreadable date';
+  document.getElementById('held').innerHTML = run.held.map(function (h) {
+    return '<div class="held-row"><span class="h-time">' + h.t + '</span>' +
+      '<span style="min-width:0"><span class="h-head">' + esc(h.head) + '</span>' +
+        '<span class="h-meta">' + esc(h.outlet) + '</span></span>' +
+      '<span class="h-why">' + esc(h.reason) + '</span></div>';
+  }).join('');
+
+  /* keep map labels at a readable screen size */
+  var booted = false, lastMu = null;
+  function setLabelScale() {
+    var svg = document.getElementById('crSvg');
+    var W = svg.getBoundingClientRect().width || 1000;
+    var k = W / 1000;
+    var screen = Math.min(11.5, Math.max(8, 7 + k * 2));   /* wanted label px on screen */
+    var mu = ((screen / 9) / k).toFixed(4);
+    if (mu === lastMu) return;
+    lastMu = mu;
+    MAPK = k || 1;
+    svg.style.setProperty('--mu', mu);
+    if (booted) paintMap();          /* spacing is measured in screen px, so re-place */
+  }
+  setLabelScale();
+  if (window.ResizeObserver) new ResizeObserver(setLabelScale).observe(document.getElementById('crSvg'));
+  else window.addEventListener('resize', setLabelScale);
+
+  /* graticule + street fabric, drawn once */
+  (function () {
+    var g = '';
+    for (var x = 0; x <= 1000; x += 50) g += '<path d="M' + x + ' 0 V400"/>';
+    for (var y = 0; y <= 400; y += 50) g += '<path d="M0 ' + y + ' H1000"/>';
+    document.getElementById('grat').innerHTML = g;
+
+    var s = '';
+    for (var sx = 12; sx < 1000; sx += 26) s += '<path d="M' + sx + ' 40 V298"/>';
+    for (var sy = 40; sy < 298; sy += 26) s += '<path d="M0 ' + sy + ' H1000"/>';
+    document.getElementById('streets').innerHTML = s;
+  })();
+
+  if (!pick(current)) current = B.crawler[0].id;
+  setLabelScale();
+  paintDetail(current);
+  booted = true;
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guard app · Bastion OS</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="css/console.css">
+<script src="js/splash.js"></script>
+<link rel="stylesheet" href="css/pages.css">
+<style>
+  .ga-body { padding: 0; display: flex; min-height: 0; }
+  .stage {
+    flex: 1 1 auto; min-height: 0;
+    background: #e6edf5;
+    background-image: radial-gradient(circle at 50% 0%, #f4f8fc 0%, #e6edf5 62%);
+    display: flex; align-items: center; justify-content: safe center; gap: 16px;
+    padding: 18px 20px;
+    overflow: auto;
+  }
+  .phone-col { display: flex; flex-direction: column; align-items: center; gap: 8px; flex: 0 0 auto; }
+  .phone {
+    width: 264px; height: 574px; flex: 0 0 auto;
+    zoom: .84;
+    background: #ffffff;
+    border: 8px solid var(--blue);
+    border-radius: 26px;
+    box-shadow: 0 20px 44px -22px rgba(16,40,64,.45), inset 0 0 0 1px #c7d8e8;
+    position: relative; overflow: hidden;
+    display: flex; flex-direction: column;
+    color: var(--text);
+    font-family: var(--ui);
+  }
+  .p-status { height: 22px; flex: 0 0 auto; display: flex; align-items: center; gap: 6px; padding: 0 12px; font: 600 9px/1 var(--mono); color: #4d565f; }
+  .p-status span:last-child { margin-left: auto; letter-spacing: .06em; }
+  .p-head { padding: 4px 14px 9px; border-bottom: 1px solid #d8dbdf; background: #f6f8fa; flex: 0 0 auto; }
+  .p-head .ph-kicker { font: 600 8px/1 var(--ui); letter-spacing: .12em; text-transform: uppercase; color: #7c858e; }
+  .p-head h3 { font: 600 14px/1.2 var(--ui); color: var(--text); margin-top: 4px; }
+  .p-head .ph-sub { font: 500 9.5px/1.35 var(--mono); color: #4d565f; margin-top: 4px; }
+  .p-body { flex: 1 1 auto; overflow: auto; padding: 11px 13px; display: flex; flex-direction: column; gap: 9px; }
+  .p-map { height: 92px; border: 1px solid #c9d6e3; background: #ffffff; position: relative; overflow: hidden; flex: 0 0 auto; }
+  .p-map svg { width: 100%; height: 100%; }
+  .p-map .geo-tag { position: absolute; left: 7px; bottom: 7px; background: rgba(255,255,255,.94); border: 1px solid #b9c8d6; padding: 3px 5px; font: 600 8px/1 var(--mono); color: var(--text-2); letter-spacing: .05em; }
+  .p-card { border: 1px solid #d8dbdf; background: #fbfcfd; padding: 8px 10px; }
+  .p-card .pc-label { font: 600 8px/1 var(--ui); letter-spacing: .1em; text-transform: uppercase; color: #7c858e; }
+  .p-card .pc-val { font: 500 12px/1.3 var(--mono); color: var(--text); margin-top: 4px; }
+  .p-card .pc-sub { font: 500 8.5px/1.4 var(--mono); color: #6b7580; margin-top: 3px; }
+  .p-btn { display: flex; align-items: center; justify-content: center; gap: 6px; height: 38px; width: 100%; border: 0; font: 600 12px/1 var(--ui); letter-spacing: .02em; color: #ffffff; background: var(--blue); flex: 0 0 auto; }
+  .p-btn:hover { background: #25629f; }
+  .p-btn.green { background: #e8eff7; color: var(--blue-2); border: 1px solid #a7bed4; }
+  .p-btn.green:hover { background: #ffffff; }
+  .p-btn.red { background: #0b2740; color: #ffffff; font-weight: 700; }
+  .p-btn.red:hover { background: #0e2f4d; }
+  .p-btn.ghost { background: transparent; border: 1px solid #b9c8d6; color: var(--text-2); }
+  .p-btn.sm { height: 29px; font-size: 11px; }
+  .p-btn:disabled { opacity: .55; cursor: default; }
+  .p-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid #e7e9ec; font-size: 11px; color: var(--text-2); }
+  .p-row:last-child { border-bottom: 0; }
+  .p-row .pr-main { flex: 1 1 auto; min-width: 0; }
+  .p-row .pr-name { display: block; color: var(--text); }
+  .p-row .pr-meta { display: block; font: 500 8.5px/1.3 var(--mono); color: #7c858e; margin-top: 2px; }
+  .p-row .pr-time { font: 500 9px/1 var(--mono); color: #4d565f; }
+  .p-check { width: 14px; height: 14px; display: grid; place-items: center; border: 1px solid #b9c8d6; color: #4d565f; font-size: 9px; flex: 0 0 auto; }
+  .p-check.done { background: #e8eff7; border-color: var(--blue); color: var(--blue-2); }
+  .p-nav { flex: 0 0 auto; height: 46px; border-top: 1px solid #d8dbdf; background: #f6f8fa; display: grid; grid-template-columns: repeat(3, 1fr); }
+  .p-nav button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font: 600 7.5px/1 var(--ui); letter-spacing: .06em; text-transform: uppercase; color: #6f89a1; }
+  .p-nav button .ic { width: 15px; height: 15px; }
+  .p-nav button[aria-current="true"] { color: var(--blue); }
+  .p-nav button.sos { color: #33475b; }
+  .p-note { font: 500 9px/1.4 var(--mono); color: #7c858e; }
+  .sos-band { background: #e8eff7; border: 1px solid #a7bed4; padding: 10px; }
+  .sos-band .sb-t { font: 600 9px/1 var(--ui); letter-spacing: .12em; text-transform: uppercase; color: #33475b; }
+  .sos-band .sb-v { font: 500 17px/1.2 var(--mono); color: var(--blue-2); margin-top: 5px; }
+  .p-photo { min-height: 82px; border: 1px solid #a7bed4; background: repeating-linear-gradient(135deg,#f1f5f9,#f1f5f9 6px,#e9eef4 6px,#e9eef4 12px); display: grid; place-items: center; text-align: center; padding: 8px; font: 600 8px/1.4 var(--mono); color: #7c858e; letter-spacing: .1em; }
+  .p-photo.has { color: var(--text-2); background: #f6f8fa; }
+  .seg-p { display: grid; grid-template-columns: repeat(2, 1fr); border: 1px solid #b9c8d6; }
+  .seg-p button { height: 25px; font: 600 8.5px/1 var(--ui); letter-spacing: .08em; text-transform: uppercase; color: #6b7580; border-left: 1px solid #e0e6ec; }
+  .seg-p button:first-child { border-left: 0; }
+  .seg-p button[aria-pressed="true"] { background: var(--blue); color: #ffffff; }
+  .p-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+  .p-chips button { height: 24px; padding: 0 7px; border: 1px solid #b9c8d6; background: #ffffff; font: 600 8.5px/1 var(--ui); letter-spacing: .06em; text-transform: uppercase; color: #6b7580; }
+  .p-chips button[aria-pressed="true"] { background: #e8eff7; border-color: var(--blue); color: var(--blue-2); }
+  .p-input { width: 100%; background: #ffffff; border: 1px solid #b9c8d6; color: var(--text); font-size: 10.5px; padding: 6px 7px; resize: none; height: 54px; line-height: 1.45; }
+  .p-input::placeholder { color: #9aa4ae; }
+  .p-label { font: 600 8px/1 var(--ui); letter-spacing: .1em; text-transform: uppercase; color: #7c858e; }
+  .p-stats { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #d8dbdf; }
+  .p-stat { padding: 7px 8px; border-left: 1px solid #e7e9ec; border-bottom: 1px solid #e7e9ec; }
+  .p-stat:nth-child(odd) { border-left: 0; }
+  .p-stat:nth-child(n+3) { border-bottom: 0; }
+  .p-stat .ps-l { font: 600 7.5px/1 var(--ui); letter-spacing: .09em; text-transform: uppercase; color: #7c858e; }
+  .p-stat .ps-v { font: 500 16px/1 var(--mono); color: var(--text); margin-top: 4px; }
+  .p-stat .ps-v small { font-size: 8px; color: #6b7580; }
+  .p-dev { display: flex; align-items: center; gap: 7px; padding: 6px 0; border-bottom: 1px solid #e7e9ec; font-size: 10px; color: var(--text-2); }
+  .p-dev:last-child { border-bottom: 0; }
+  .p-dev .ic { width: 12px; height: 12px; color: #7c858e; }
+  .p-dev .grow { flex: 1 1 auto; min-width: 0; }
+  .p-dev b { font: 500 8.5px/1 var(--mono); color: #4d565f; }
+  @media (max-width: 1440px) { .phone { zoom: .78; } .stage { gap: 12px; padding: 14px 16px; } }
+  @media (max-width: 1310px) { .phone { zoom: .72; } }
+  @media (max-width: 1180px) { .phone { zoom: .64; } .stage { gap: 10px; } }
+</style>
+</head>
+<body data-nav="guard" data-crumb="Field" data-here="Guard app">
+<div class="app">
+  <aside data-shell="rail"></aside>
+  <div class="shell">
+    <header data-shell="topbar"></header>
+
+    <div class="page">
+      <div class="page-head">
+        <div class="page-title">Guard app <span class="id">V4.2.0 · 59 DEVICES</span></div>
+        <div class="page-tools">
+          <a class="btn sm" href="settings.html">App settings</a>
+          <a class="btn sm" href="settings.html">Devices</a>
+        </div>
+      </div>
+
+      <div class="body ga-body">
+        <div class="stage">
+          <!-- 1 · ATTENDANCE -->
+          <div class="phone-col">
+            <div class="phone">
+              <div class="p-status"><span>08:42</span><span>WAT &nbsp; ▮▮▮</span></div>
+              <div class="p-head">
+                <div class="ph-kicker">Day shift · 06:00 – 18:00</div>
+                <h3>Apapa Terminal 2</h3>
+                <div class="ph-sub">Tue 17 Nov · Adebayo Ojo · OFF-1001</div>
+              </div>
+              <div class="p-body">
+                <div class="p-map">
+                  <svg viewBox="0 0 260 104" preserveAspectRatio="none" aria-hidden="true">
+                    <rect width="260" height="104" fill="#ffffff"/>
+                    <path d="M0 66 L260 58" stroke="#d9e1e9"/><path d="M54 0 L60 104" stroke="#d9e1e9"/><path d="M168 0 L162 104" stroke="#d9e1e9"/>
+                    <path d="M0 96 C60 90 120 100 260 88 L260 104 L0 104 Z" fill="#dbe7f3"/>
+                    <circle cx="118" cy="52" r="22" fill="rgba(97,97,97,.16)" stroke="#6f89a1" stroke-dasharray="3 3"/>
+                    <circle cx="118" cy="52" r="4" fill="#6f89a1" stroke="#c1c1c1"/>
+                    <text x="118" y="82" text-anchor="middle" fill="#4d565f" font-size="7" font-family="monospace">42 m INSIDE</text>
+                  </svg>
+                  <span class="geo-tag">GPS ±6 m</span>
+                </div>
+
+                <div class="p-card">
+                  <div class="pc-label">Shift attendance</div>
+                  <div class="pc-val" id="gaState">Not checked in</div>
+                  <div class="pc-sub">Geofence 160 m · gate phone</div>
+                </div>
+
+                <button class="p-btn green" type="button" id="checkIn">Check in</button>
+
+                <div class="p-card">
+                  <div class="pc-label">NFC card</div>
+                  <div class="pc-val">AP-0421 · linked</div>
+                  <div class="pc-sub">Last read 05:52 · handset 04</div>
+                </div>
+                <button class="p-btn ghost sm" type="button" data-toast="NFC scanner ready · hold the tag to the back of the phone">Scan NFC tag</button>
+
+                <div class="p-row"><span class="pr-main"><span class="pr-name">Adebayo Ojo</span><span class="pr-meta">DAY SUPERVISOR · 05:52</span></span><span class="p-check done">✓</span></div>
+                <div class="p-row"><span class="pr-main"><span class="pr-name">Tunde Kareem</span><span class="pr-meta">RELIEF · 06:44</span></span><span class="p-check done">✓</span></div>
+                <div class="p-row"><span class="pr-main"><span class="pr-name">Chika Eze</span><span class="pr-meta">GATE · NOT IN</span></span><span class="p-check"></span></div>
+              </div>
+              <nav class="p-nav">
+                <button type="button" aria-current="true"><svg class="ic"><use href="#i-shield"/></svg>Shift</button>
+                <button type="button" data-toast="Patrol screen opens on the phone"><svg class="ic"><use href="#i-route"/></svg>Patrol</button>
+                <button type="button" class="sos" data-toast="SOS needs a 2-second hold on the handset"><svg class="ic"><use href="#i-alert"/></svg>SOS</button>
+              </nav>
+            </div>
+          </div>
+
+          <!-- 2 · PATROL -->
+          <div class="phone-col">
+            <div class="phone">
+              <div class="p-status"><span>08:44</span><span>WAT &nbsp; ▮▮▮</span></div>
+              <div class="p-head">
+                <div class="ph-kicker">Patrol · round 2 of 4</div>
+                <h3>Wharf and yard</h3>
+                <div class="ph-sub">Window closes 08:55 · 1 stop left</div>
+              </div>
+              <div class="p-body">
+                <div class="seg-p" role="group" aria-label="Patrol view">
+                  <button type="button" aria-pressed="true" data-round="now">This round</button>
+                  <button type="button" aria-pressed="false" data-round="past">Earlier today</button>
+                </div>
+
+                <div data-round-panel="now">
+                  <div class="hstack" style="gap:8px;align-items:baseline">
+                    <span style="font:500 22px/1 var(--mono);color:var(--text)" id="gaDone">11</span>
+                    <span style="font:500 11px/1 var(--mono);color:#7c858e">/ 12 checkpoints</span>
+                    <span class="right p-note" id="gaPct">92%</span>
+                  </div>
+                  <div class="meter" style="height:5px;background:#e7e9ec;border-color:#d8dbdf;margin-top:6px"><i id="gaMeter" style="width:92%;background:var(--blue)"></i></div>
+
+                  <div style="margin-top:6px">
+                    <div class="p-row"><span class="p-check done">✓</span><span class="pr-main"><span class="pr-name">CP-11 · Wharf gate</span><span class="pr-meta">SIGNED 08:36</span></span><span class="pr-time">08:36</span></div>
+                    <div class="p-row"><span class="p-check done">✓</span><span class="pr-main"><span class="pr-name">CP-12 · Service yard</span><span class="pr-meta">SIGNED 08:38</span></span><span class="pr-time">08:38</span></div>
+                    <div class="p-row" id="gaNextRow"><span class="p-check" id="gaCheck"></span><span class="pr-main"><span class="pr-name">CP-13 · North gate</span><span class="pr-meta" id="gaNextMeta">NOT SCANNED · NFC</span></span><span class="pr-time" id="gaNextTime">—</span></div>
+                  </div>
+
+                  <button class="p-btn" type="button" id="scan" style="margin-top:8px">Scan next checkpoint</button>
+                  <button class="p-btn ghost sm" type="button" data-toast="Supervisor has been notified" style="margin-top:6px">Report a problem</button>
+                  <div class="p-note" style="margin-top:6px">A tag read, or a photo when the tag fails.</div>
+                </div>
+
+                <div data-round-panel="past" hidden>
+                  <div class="p-row"><span class="p-check done">✓</span><span class="pr-main"><span class="pr-name">Round 1 · Perimeter</span><span class="pr-meta">12 / 12 · CLOSED 07:42</span></span><span class="pr-time">07:42</span></div>
+                  <div class="p-row"><span class="p-check done">✓</span><span class="pr-main"><span class="pr-name">Round 2 · Wharf and yard</span><span class="pr-meta">RUNNING · 11 / 12</span></span><span class="pr-time">08:38</span></div>
+                  <div class="p-row"><span class="p-check"></span><span class="pr-main"><span class="pr-name">Round 3 · North gate</span><span class="pr-meta">DUE 10:00 · ASSIGNED</span></span><span class="pr-time">—</span></div>
+                  <div class="p-row"><span class="p-check"></span><span class="pr-main"><span class="pr-name">Round 4 · Yard sweep</span><span class="pr-meta">DUE 12:00 · NOT STARTED</span></span><span class="pr-time">—</span></div>
+                  <div class="p-note" style="margin-top:8px">Yesterday · 4 of 4 rounds signed, 1 missed checkpoint at CP-12.</div>
+                </div>
+              </div>
+              <nav class="p-nav">
+                <button type="button" data-toast="Shift screen opens on the phone"><svg class="ic"><use href="#i-shield"/></svg>Shift</button>
+                <button type="button" aria-current="true"><svg class="ic"><use href="#i-route"/></svg>Patrol</button>
+                <button type="button" class="sos" data-toast="SOS needs a 2-second hold on the handset"><svg class="ic"><use href="#i-alert"/></svg>SOS</button>
+              </nav>
+            </div>
+          </div>
+
+          <!-- 3 · RAISE AN ALERT -->
+          <div class="phone-col">
+            <div class="phone">
+              <div class="p-status"><span>08:46</span><span>WAT &nbsp; ▮▮▮</span></div>
+              <div class="p-head">
+                <div class="ph-kicker" id="repKicker">New report · site locked</div>
+                <h3 id="repTitle">Raise an alert</h3>
+                <div class="ph-sub">Apapa Terminal 2 · north gate</div>
+              </div>
+              <div class="p-body">
+                <div>
+                  <div class="p-label" style="margin-bottom:5px">Category</div>
+                  <div class="p-chips" id="repCats">
+                    <button type="button" aria-pressed="true">Incident</button>
+                    <button type="button" aria-pressed="false">Suspicion</button>
+                    <button type="button" aria-pressed="false">Medical</button>
+                    <button type="button" aria-pressed="false">Fire</button>
+                    <button type="button" aria-pressed="false">Other</button>
+                  </div>
+                </div>
+
+                <div>
+                  <div class="p-label" style="margin-bottom:5px">What is happening</div>
+                  <textarea class="p-input" id="repNote" placeholder="Short note for the control room"></textarea>
+                </div>
+
+                <div class="p-photo" id="repPhoto">NO PHOTO<br>TAKE ONE IF IT IS SAFE</div>
+                <button class="p-btn ghost sm" type="button" id="repPhotoBtn">Take photo</button>
+
+                <div class="p-card">
+                  <div class="pc-label">Goes to</div>
+                  <div class="pc-val">Control room · supervisor</div>
+                  <div class="pc-sub">Location and attendance attach automatically</div>
+                </div>
+
+                <button class="p-btn green" type="button" id="repSend">Send report</button>
+                <div class="p-note" id="repNoteLine">Photo and location are kept with the report.</div>
+              </div>
+              <nav class="p-nav">
+                <button type="button" data-toast="Shift screen opens on the phone"><svg class="ic"><use href="#i-shield"/></svg>Shift</button>
+                <button type="button" data-toast="Patrol screen opens on the phone"><svg class="ic"><use href="#i-route"/></svg>Patrol</button>
+                <button type="button" class="sos" aria-current="true"><svg class="ic"><use href="#i-alert"/></svg>SOS</button>
+              </nav>
+            </div>
+          </div>
+
+          <!-- 4 · SOS -->
+          <div class="phone-col">
+            <div class="phone">
+              <div class="p-status"><span>08:45</span><span>WAT &nbsp; ▮▮▮</span></div>
+              <div class="p-head" style="background:#e8eff7;border-bottom-color:#a7bed4">
+                <div class="ph-kicker" style="color:#33475b">Emergency · live</div>
+                <h3>SOS active</h3>
+                <div class="ph-sub">Gate B · Cedar Mall · 08:31</div>
+              </div>
+              <div class="p-body">
+                <div class="sos-band">
+                  <div class="sb-t">Control room has your location</div>
+                  <div class="sb-v">2 officers responding</div>
+                </div>
+                <div class="p-card">
+                  <div class="pc-label">Location</div>
+                  <div class="pc-val">6.5095 N, 3.3792 E</div>
+                  <div class="pc-sub">Inside the geofence · GPS ±6 m</div>
+                </div>
+                <div class="p-photo has">PHOTO ATTACHED · 08:31</div>
+                <button class="p-btn ghost sm" type="button" data-toast="Calling the day supervisor">Call supervisor · Fatima</button>
+                <button class="p-btn ghost sm" type="button" data-toast="Calling the control room · ext. 214">Call control room</button>
+                <button class="p-btn red" type="button" id="cancelSos">Hold to cancel SOS</button>
+                <div class="p-note" id="sosNote">Only cancel when the situation is safe. The log keeps the original alert.</div>
+              </div>
+              <nav class="p-nav">
+                <button type="button" data-toast="Shift screen opens on the phone"><svg class="ic"><use href="#i-shield"/></svg>Shift</button>
+                <button type="button" data-toast="Patrol screen opens on the phone"><svg class="ic"><use href="#i-route"/></svg>Patrol</button>
+                <button type="button" class="sos" aria-current="true"><svg class="ic"><use href="#i-alert"/></svg>SOS</button>
+              </nav>
+            </div>
+          </div>
+
+          <!-- 5 · PROFILE / ANALYTICS / SCHEDULE -->
+          <div class="phone-col">
+            <div class="phone">
+              <div class="p-status"><span>08:47</span><span>WAT &nbsp; ▮▮▮</span></div>
+              <div class="p-head">
+                <div class="ph-kicker">Guard profile</div>
+                <h3>Adebayo Ojo</h3>
+                <div class="ph-sub">OFF-1001 · Apapa Terminal 2 · day supervisor</div>
+              </div>
+              <div class="p-body">
+                <div class="p-stats">
+                  <div class="p-stat"><div class="ps-l">Attendance</div><div class="ps-v">96<small>%</small></div></div>
+                  <div class="p-stat"><div class="ps-l">Patrols signed</div><div class="ps-v">98<small>%</small></div></div>
+                  <div class="p-stat"><div class="ps-l">On time</div><div class="ps-v">24<small>/26</small></div></div>
+                  <div class="p-stat"><div class="ps-l">Hours this week</div><div class="ps-v">47<small>/60</small></div></div>
+                </div>
+
+                <div>
+                  <div class="p-label" style="margin-bottom:4px">This week</div>
+                  <div class="p-row"><span class="pr-main"><span class="pr-name">Mon 16 · Day 06:00 – 18:00</span><span class="pr-meta">SIGNED IN 05:49 · APAPA</span></span><span class="pr-time">✓</span></div>
+                  <div class="p-row"><span class="pr-main"><span class="pr-name">Tue 17 · Day 06:00 – 18:00</span><span class="pr-meta">ON SHIFT · APAPA</span></span><span class="pr-time">now</span></div>
+                  <div class="p-row"><span class="pr-main"><span class="pr-name">Wed 18 · Night 18:00 – 06:00</span><span class="pr-meta">APAPA · GATE 2</span></span><span class="pr-time">—</span></div>
+                  <div class="p-row"><span class="pr-main"><span class="pr-name">Thu 19 · Rest day</span><span class="pr-meta">NO SHIFT ROSTERED</span></span><span class="pr-time">—</span></div>
+                </div>
+
+                <div>
+                  <div class="p-label" style="margin-bottom:2px">Device</div>
+                  <div class="p-dev"><svg class="ic"><use href="#i-nfc"/></svg><span class="grow">NFC card AP-0421</span><b>linked</b></div>
+                  <div class="p-dev"><svg class="ic"><use href="#i-nfc"/></svg><span class="grow">Scanner NFC-04</span><b>ready</b></div>
+                  <div class="p-dev"><svg class="ic"><use href="#i-pin"/></svg><span class="grow">GPS lock</span><b>±6 m</b></div>
+                  <div class="p-dev"><svg class="ic"><use href="#i-phone"/></svg><span class="grow">App 4.2.0 · handset 04</span><b>82%</b></div>
+                </div>
+              </div>
+              <nav class="p-nav">
+                <button type="button" aria-current="true"><svg class="ic"><use href="#i-user"/></svg>Profile</button>
+                <button type="button" data-toast="Patrol screen opens on the phone"><svg class="ic"><use href="#i-route"/></svg>Patrol</button>
+                <button type="button" class="sos" data-toast="SOS needs a 2-second hold on the handset"><svg class="ic"><use href="#i-alert"/></svg>SOS</button>
+              </nav>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <footer data-shell="status"></footer>
+    </div>
+  </div>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/shell.js"></script>
+<script>
+(function () {
+  var checkedIn = false;
+  document.getElementById('checkIn').addEventListener('click', function () {
+    checkedIn = !checkedIn;
+    this.textContent = checkedIn ? 'Checked in · 08:42' : 'Check in';
+    this.classList.toggle('green', !checkedIn);
+    this.classList.toggle('ghost', checkedIn);
+    document.getElementById('gaState').textContent = checkedIn ? 'On post · 08:42' : 'Not checked in';
+    toast(checkedIn ? 'Attendance recorded at Apapa Terminal 2' : 'Check-in withdrawn', checkedIn ? 'check' : 'refresh');
+  });
+
+  var signed = false;
+  document.getElementById('scan').addEventListener('click', function () {
+    if (signed) { toast('Round complete · 12 of 12', 'check'); return; }
+    signed = true;
+    document.getElementById('gaCheck').classList.add('done');
+    document.getElementById('gaCheck').textContent = '✓';
+    document.getElementById('gaNextMeta').textContent = 'SIGNED NOW';
+    document.getElementById('gaNextTime').textContent = '08:44';
+    document.getElementById('gaDone').textContent = '12';
+    document.getElementById('gaPct').textContent = '100%';
+    document.getElementById('gaMeter').style.width = '100%';
+    this.textContent = 'Round complete';
+    this.disabled = true;
+    toast('CP-13 signed · round complete', 'check');
+  });
+
+  document.querySelectorAll('[data-round]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var key = b.getAttribute('data-round');
+      document.querySelectorAll('[data-round]').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); });
+      document.querySelectorAll('[data-round-panel]').forEach(function (p) {
+        p.hidden = p.getAttribute('data-round-panel') !== key;
+      });
+    });
+  });
+
+  var cat = 'Incident', photo = false;
+  document.querySelectorAll('#repCats button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      cat = b.textContent;
+      document.querySelectorAll('#repCats button').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); });
+    });
+  });
+  document.getElementById('repPhotoBtn').addEventListener('click', function () {
+    photo = !photo;
+    var ph = document.getElementById('repPhoto');
+    ph.classList.toggle('has', photo);
+    ph.innerHTML = photo ? 'PHOTO 1 · 08:46<br>ATTACHED' : 'NO PHOTO<br>TAKE ONE IF IT IS SAFE';
+    this.textContent = photo ? 'Remove photo' : 'Take photo';
+  });
+  document.getElementById('repSend').addEventListener('click', function () {
+    var note = document.getElementById('repNote').value.trim();
+    if (!note) { toast('Add a short note before sending'); document.getElementById('repNote').focus(); return; }
+    this.textContent = 'Report sent · AL-8842';
+    this.classList.remove('green');
+    this.disabled = true;
+    document.getElementById('repKicker').textContent = 'Sent to control room · AL-8842';
+    document.getElementById('repTitle').textContent = cat;
+    document.getElementById('repNoteLine').textContent = photo
+      ? 'Photo, location and attendance were attached.'
+      : 'Location and attendance were attached.';
+    toast('Alert AL-8842 sent · control room notified', 'check');
+  });
+
+  document.getElementById('cancelSos').addEventListener('click', function () {
+    this.textContent = 'Cancelled · supervisor notified';
+    this.classList.remove('red');
+    this.disabled = true;
+    document.getElementById('sosNote').textContent = 'Attendance and location were sent to the control room. The guard app stays on this screen until the supervisor closes the alert.';
+    toast('SOS cancelled · Fatima Bello notified', 'check');
+  });
+})();
+</script>
+</body>
+</html>

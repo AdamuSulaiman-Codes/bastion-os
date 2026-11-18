@@ -1,0 +1,769 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guards · Bastion OS</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="css/console.css">
+<script src="js/splash.js"></script>
+<link rel="stylesheet" href="css/pages.css">
+<style>
+  .people-body { display: flex; flex-direction: column; gap: 10px; height: 100%; min-height: 0; }
+
+  /* inline counts in the page head — no KPI cards */
+  .head-counts { display: flex; align-items: baseline; gap: 0; margin-left: 4px; min-width: 0; }
+  .hc { display: flex; align-items: baseline; gap: 5px; padding: 0 11px; border-left: 1px solid var(--line); white-space: nowrap; }
+  .hc b { font: 500 14px/1 var(--mono); color: var(--text); letter-spacing: -.4px; }
+  .hc span { font: 600 9px/1 var(--ui); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+
+  .people-body .toolbar .field { flex: 0 1 320px; min-width: 220px; }
+  .people-body #stateFilter { width: 132px; }
+  .people-body #siteFilter { width: 176px; }
+  .people-body .toolbar .count { flex: 0 0 auto; white-space: nowrap; }
+
+  .tbl.guards { table-layout: fixed; }  .tbl.guards thead th { height: 28px; }
+  .tbl.guards tbody td { height: 42px; }
+  .tbl.guards tbody tr { cursor: pointer; }
+
+  .gd { display: flex; align-items: center; gap: 9px; min-width: 0; }
+  .gd .avatar { width: 26px; height: 26px; font-size: 9.5px; }
+  .gd .gd-main { min-width: 0; }
+  .gd .gd-name { font-size: 12px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .gd .gd-phone { font: 400 10px/1.3 var(--mono); color: var(--faint); letter-spacing: .01em; }
+
+  .gid { display: inline-block; font: 500 10px/1 var(--mono); letter-spacing: .04em; color: var(--text-2);
+         background: var(--panel-3); border: 1px solid var(--line); padding: 3px 5px; }
+
+  .stt { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--text); white-space: nowrap; }
+  .stt.sos { font-weight: 600; }
+  .stt.off { color: var(--muted); }
+
+  .tagcell { display: flex; align-items: center; gap: 4px; min-width: 0; }
+  .tag { font: 500 10px/1 var(--mono); color: var(--text-2); letter-spacing: .02em; }
+  .tag.off { color: var(--faint); }
+  .copy { width: 20px; height: 20px; display: grid; place-items: center; color: var(--faint); border: 1px solid transparent; }
+  .copy .ic { width: 12px; height: 12px; }
+  .copy:hover { background: var(--panel-3); border-color: var(--line); color: var(--text); }
+
+  .acts { text-align: right; white-space: nowrap; }
+  .act { font-size: 11px; padding: 3px 6px; color: var(--text-2); border: 1px solid transparent; }
+  .act:hover { background: var(--panel-3); border-color: var(--line); color: var(--text); }
+  .act.del:hover { color: var(--blue-2); border-color: var(--blue-2); }
+  .acts .conf { font-size: 10.5px; color: var(--muted); margin-right: 4px; }
+  .act.yes { border-color: var(--blue-2); color: var(--blue-2); font-weight: 600; }
+  .act.yes:hover { background: var(--blue); color: #ffffff; border-color: var(--blue); }
+
+  .empty-state { padding: 40px 16px; text-align: center; color: var(--muted); font-size: 12px; }
+  .empty-state strong { display: block; color: var(--text-2); font-size: 13px; margin-bottom: 3px; }
+
+  /* form modal */
+  .modal-head { height: 36px; flex: 0 0 auto; display: flex; align-items: center; gap: 8px;
+                padding: 0 8px 0 12px; background: var(--blue); color: #ffffff; border-bottom: 1px solid var(--blue-2); }
+  .modal-head h2 { font: 600 11.5px/1 var(--ui); letter-spacing: .05em; text-transform: uppercase; }
+  .modal-head .icb { color: #a9a9a9; }
+  .modal-head .icb:hover { background: var(--blue-2); border-color: rgba(255,255,255,.4); color: #ffffff; }
+  .modal-body { padding: 12px; display: grid; gap: 10px; overflow: auto; }
+  .modal-foot { flex: 0 0 auto; display: flex; gap: 6px; justify-content: flex-end; align-items: center;
+                padding: 8px 12px; border-top: 1px solid var(--line); background: var(--panel-2); }
+  .modal-foot .right { margin-left: auto; }
+
+  /* register guard */
+  .reg-form { display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; }
+  .reg-form[hidden], .reg-done[hidden] { display: none; }
+  .avatar.ph { object-fit: cover; padding: 0; border-color: #b6b6b6; }
+  .reg-photo { display: flex; align-items: center; gap: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--line-2); }
+  .ph-btn { width: 74px; height: 74px; flex: 0 0 auto; display: grid; place-items: center; overflow: hidden;
+            background: var(--panel-3); border: 1px dashed #a6a6a6; color: var(--faint); cursor: pointer; }
+  .ph-btn:hover { border-color: #6f89a1; color: var(--text-2); }
+  .ph-btn .ic { width: 22px; height: 22px; }
+  .ph-btn img { width: 100%; height: 100%; object-fit: cover; }
+  .reg-photo-copy { display: grid; gap: 3px; min-width: 0; }
+  .reg-photo-copy b { font-size: 11.5px; color: var(--text); }
+  .reg-photo-copy b .opt { font: 600 8.5px/1 var(--ui); letter-spacing: .07em; text-transform: uppercase; color: var(--faint); margin-left: 4px; }
+  .reg-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px 10px; }
+  .reg-grid .span2 { grid-column: span 2; }
+  .reg-grid .input, .reg-grid .select { height: 29px; }
+  .form-err { border: 1px solid var(--blue-2); background: var(--blue-bg); color: var(--blue-2); font-size: 11px; padding: 6px 9px; }
+
+  /* issued record */
+  .reg-done { display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; }
+  .done-head { display: flex; align-items: center; gap: 11px; }
+  .done-head .avatar { width: 42px; height: 42px; font-size: 13px; }
+  .done-head .dh-copy b { display: block; font-size: 13px; color: var(--text); }
+  .done-head .dh-copy span { font-size: 10.5px; color: var(--muted); }
+  .done-code { display: flex; align-items: baseline; gap: 12px; padding: 10px 12px; border: 1px solid var(--line-strong); background: var(--panel-2); }
+  .done-code b { font: 500 26px/1 var(--mono); letter-spacing: .18em; color: var(--text); }
+  .done-tag { display: flex; align-items: center; gap: 8px; font-size: 11.5px; }
+  .done-tag .lbl { margin: 0; }
+  .done-tag .mono { font-family: var(--mono); color: var(--text); }
+  .done-write { justify-self: start; }
+
+  /* guard record photo head */
+  .dr-head { display: flex; align-items: center; gap: 12px; }
+  .dr-head .avatar { width: 46px; height: 46px; font-size: 13px; }
+  .dr-head-main { min-width: 0; }
+  .dr-photo-actions { display: flex; gap: 2px; margin-top: 2px; }
+
+  @media (max-width: 1400px) { .hc.opt { display: none; } }
+  @media (max-width: 1240px) { .tbl.guards .col-nfc { display: none; } }
+  @media (max-width: 1120px) {
+    .tbl.guards .col-sign { display: none; }
+    .people-body .toolbar .field { min-width: 160px; flex-basis: 220px; }
+    .people-body #stateFilter { width: 116px; }
+    .people-body #siteFilter { width: 144px; }
+  }
+  @media (max-width: 1060px) { .hc.site { display: none; } }
+  @media (max-width: 900px)  { .tbl.guards .col-id { display: none; } }
+</style>
+</head>
+<body data-nav="people" data-crumb="Operations" data-here="Guards">
+<div class="app">
+  <aside data-shell="rail"></aside>
+  <div class="shell">
+    <header data-shell="topbar"></header>
+
+    <div class="page">
+      <div class="page-head">
+        <div class="page-title">Guards</div>
+        <div class="head-counts" id="counts" aria-label="Roster summary"></div>
+        <div class="page-tools">
+          <a class="btn sm" href="sites.html"><svg class="ic"><use href="#i-pin"/></svg>Live locations</a>
+          <button class="btn primary sm" type="button" id="register"><svg class="ic"><use href="#i-plus"/></svg>Register guard</button>
+        </div>
+      </div>
+
+      <div class="body people-body">
+        <div class="toolbar">
+          <label class="field">
+            <svg class="ic"><use href="#i-search"/></svg>
+            <input type="text" id="q" placeholder="Search name, phone, site…" aria-label="Search guards">
+          </label>
+          <select class="select" id="stateFilter" aria-label="Filter by status"></select>
+          <select class="select" id="siteFilter" aria-label="Filter by site"></select>
+          <span class="spacer"></span>
+          <span class="count" id="rowCount">59 guards</span>
+          <button class="btn sm" type="button" id="export"><svg class="ic"><use href="#i-download"/></svg>Export CSV</button>
+        </div>
+
+        <section class="panel flex-1" style="min-height:0">
+          <div class="wrap-scroll" style="height:100%">
+            <table class="tbl guards">
+              <thead>
+                <tr>
+                  <th>Guard</th>
+                  <th class="col-id" style="width:78px">Guard ID</th>
+                  <th style="width:190px">Site</th>
+                  <th style="width:104px">Status</th>
+                  <th class="col-sign" style="width:112px">Morning sign-in</th>
+                  <th class="col-nfc" style="width:136px">NFC tag</th>
+                  <th style="width:150px" class="n">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="rows"></tbody>
+            </table>
+            <div class="empty-state" id="empty" hidden><strong>No guard matches</strong>Clear the search or choose another site.</div>
+          </div>
+          <div class="panel-foot">
+            <span id="footL">Showing 59 of 59 guards</span>
+            <span class="right" id="footR"></span>
+          </div>
+        </section>
+      </div>
+
+      <footer data-shell="status"></footer>
+    </div>
+  </div>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="drName">
+  <div class="drawer-head">
+    <h2>Guard record</h2>
+    <div class="panel-tools"><button class="icb" type="button" data-close aria-label="Close"><svg class="ic"><use href="#i-x"/></svg></button></div>
+  </div>
+  <div class="drawer-body">
+    <div class="rec-head dr-head">
+      <span id="drPhoto"></span>
+      <div class="dr-head-main">
+        <h2 id="drName">—</h2>
+        <div class="rec-sub" id="drSub">—</div>
+        <div class="dr-photo-actions">
+          <button class="act" type="button" id="drPhotoPick">Add photo</button>
+          <button class="act del" type="button" id="drPhotoClear" hidden>Remove</button>
+          <input type="file" id="drPhotoFile" accept="image/*" hidden>
+        </div>
+      </div>
+    </div>
+    <div class="rec-metrics">
+      <div class="rec-metric"><div class="m-lbl">Today</div><div class="m-val" id="drState">—</div></div>
+      <div class="rec-metric"><div class="m-lbl">Sign-in</div><div class="m-val" id="drTime">—</div></div>
+      <div class="rec-metric"><div class="m-lbl">Patrols</div><div class="m-val" id="drPatrol">—</div></div>
+      <div class="rec-metric"><div class="m-lbl">Hours</div><div class="m-val" id="drHours">—</div></div>
+    </div>
+    <div class="rec-section">
+      <span class="lbl">Guard ID &amp; NFC tag</span>
+      <div class="hstack" style="gap:6px">
+        <input class="input mono" id="drCode" inputmode="numeric" maxlength="3" aria-label="Guard ID" style="width:70px">
+        <button class="btn sm" type="button" id="drCodeSave">Save ID</button>
+        <span class="grow"></span>
+        <button class="btn sm" type="button" id="drTagNew">Replace tag</button>
+      </div>
+      <div class="hint mono" id="drTagLine" style="margin-top:6px">—</div>
+    </div>
+    <div class="rec-section">
+      <span class="lbl">Record</span>
+      <dl class="kv" id="drKv"></dl>
+    </div>
+    <div class="rec-section">
+      <span class="lbl">Move guard</span>
+      <div class="hstack" style="gap:6px;flex-wrap:wrap">
+        <select class="select" id="mvSite" style="width:180px" aria-label="Move to site"></select>
+        <button class="btn primary sm" type="button" id="mvGo">Move</button>
+      </div>
+    </div>
+    <div class="rec-section">
+      <span class="lbl">Recent shifts</span>
+      <table class="tbl compact"><thead><tr><th>Date</th><th>Site</th><th>Post</th><th class="n">In</th></tr></thead><tbody id="drShifts"></tbody></table>
+    </div>
+  </div>
+  <div class="drawer-foot">
+    <button class="btn sm" type="button" id="drEdit">Edit details</button>
+    <button class="btn sm" type="button" id="drSuspend">Suspend</button>
+    <span class="right"></span>
+    <button class="btn sm" type="button" data-close>Close</button>
+  </div>
+</aside>
+
+<div class="modal-scrim" id="modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle" style="width:600px;max-height:94vh">
+    <div class="modal-head">
+      <h2 id="mTitle">Register guard</h2>
+      <div class="panel-tools"><button class="icb" type="button" id="mX" aria-label="Close"><svg class="ic"><use href="#i-x"/></svg></button></div>
+    </div>
+
+    <form class="reg-form" id="mForm" novalidate>
+      <div class="modal-body">
+        <div class="reg-photo">
+          <button type="button" class="ph-btn" id="mPhoto" aria-label="Add guard photo">
+            <svg class="ic" id="mPhotoIcon"><use href="#i-camera"/></svg>
+            <img id="mPhotoImg" alt="" hidden>
+          </button>
+          <div class="reg-photo-copy">
+            <b>Guard photo <span class="opt">optional</span></b>
+            <span class="hint">Front-facing, taken on site or uploaded.</span>
+            <div class="hstack" style="gap:6px">
+              <button class="btn sm" type="button" id="mPhotoPick">Take or upload photo</button>
+              <button class="btn sm" type="button" id="mPhotoClear" hidden>Remove</button>
+            </div>
+            <input type="file" id="mPhotoFile" accept="image/*" capture="user" hidden>
+          </div>
+        </div>
+
+        <div class="reg-grid">
+          <label class="form-row"><span>Full name</span><input class="input" id="mName" autocomplete="off" placeholder="e.g. Musa Adamu"></label>
+          <label class="form-row"><span>Phone</span><input class="input" id="mPhone" inputmode="tel" autocomplete="off" placeholder="0803 000 0000"></label>
+          <label class="form-row"><span>NIN · 11 digits</span><input class="input" id="mNin" inputmode="numeric" maxlength="11" autocomplete="off" placeholder="20987654321"></label>
+          <label class="form-row"><span>Monthly salary (₦)</span><input class="input" id="mSalary" type="number" min="0" step="1000" value="150000"></label>
+          <label class="form-row"><span>Assigned site</span><select class="select" id="mSite"></select></label>
+          <label class="form-row"><span>Shift</span><select class="select" id="mShift">
+            <option value="">Company default · 06:00 – 18:00</option>
+            <option value="day">Day · 06:00 – 14:00</option>
+            <option value="night">Night · 18:00 – 06:00</option>
+          </select></label>
+        </div>
+
+        <p class="form-err" id="mErr" role="alert" hidden></p>
+        <p class="hint" id="mHint">A guard ID is issued on save, and the NFC tag is created with the record.</p>
+      </div>
+      <div class="modal-foot">
+        <button class="btn sm" type="button" id="mCancel">Cancel</button>
+        <span class="right"></span>
+        <button class="btn primary sm" type="button" id="mSave">Register guard</button>
+      </div>
+    </form>
+
+    <div class="reg-done" id="mDone" hidden>
+      <div class="modal-body">
+        <div class="done-head">
+          <span id="dAv"></span>
+          <div class="dh-copy"><b id="dName">—</b><span id="dSub">—</span></div>
+        </div>
+        <div class="done-code"><span class="lbl">Guard ID</span><b id="dCode">—</b></div>
+        <p class="hint">Write this ID onto the guard's NFC tag. Scanning it identifies them in the guard app without typing.</p>
+        <div class="done-tag"><span class="lbl">Issued tag</span><span class="mono" id="dTag">—</span>
+          <button class="copy" type="button" id="dCopy" aria-label="Copy tag code"><svg class="ic"><use href="#i-copy"/></svg></button>
+        </div>
+        <button class="btn done-write" type="button" id="dWrite"><svg class="ic"><use href="#i-nfc"/></svg>Write guard ID to tag</button>
+        <p class="hint" id="dWriteState">Not written yet.</p>
+      </div>
+      <div class="modal-foot">
+        <button class="btn sm" type="button" id="dAnother">Register another</button>
+        <span class="right"></span>
+        <button class="btn primary sm" type="button" id="dDone">Done</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/shell.js"></script>
+<script>
+(function () {
+  boardStore.apply();
+
+  var STATES = [
+    { id: 'all', label: 'All guards' },
+    { id: 'on', label: 'On post' },
+    { id: 'late', label: 'Late today' },
+    { id: 'noshow', label: 'Not in today' },
+    { id: 'bench', label: 'Dormant' },
+    { id: 'suspended', label: 'Suspended' }
+  ];
+  var state = { filter: 'all', site: '', q: '', open: null, editing: null, photo: null, done: null };
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
+  function siteName(k) { return k === 'bench' ? 'Not assigned' : (B.site(k) || { name: '—' }).name; }
+  function code(o) { return o.code || o.id.slice(-3); }
+  function tag(o) { return o.tag || ''; }
+  function shiftLabel(o) { return o.shift === 'day' ? 'Day · 06:00 – 14:00' : o.shift === 'night' ? 'Night · 18:00 – 06:00' : 'Company default · 06:00 – 18:00'; }
+  function statusOf(o) { return o.emp === 'suspended' ? 'Suspended' : B.stateLabel[o.state]; }
+  function matches(o) {
+    if (state.filter === 'suspended' && o.emp !== 'suspended') return false;
+    if (state.filter !== 'all' && state.filter !== 'suspended' && o.emp === 'suspended') return false;
+    if (state.filter === 'bench' && o.site !== 'bench') return false;
+    if (state.filter === 'on' && !(o.state === 'on' || o.state === 'sos')) return false;
+    if (state.filter === 'late' && o.state !== 'late') return false;
+    if (state.filter === 'noshow' && o.state !== 'noshow') return false;
+    if (state.site && o.site !== state.site) return false;
+    if (state.q) {
+      var hay = (o.name + ' ' + o.phone + ' ' + o.id + ' ' + code(o) + ' ' + o.post + ' ' + siteName(o.site)).toLowerCase();
+      if (hay.indexOf(state.q.toLowerCase()) === -1) return false;
+    }
+    return true;
+  }
+
+  /* ---------- controls ---------- */
+  var stateFilter = document.getElementById('stateFilter');
+  stateFilter.innerHTML = STATES.map(function (s) { return '<option value="' + s.id + '">' + s.label + '</option>'; }).join('');
+
+  var siteFilter = document.getElementById('siteFilter');
+  siteFilter.innerHTML = '<option value="">All sites</option>' + B.sites.map(function (s) {
+    return '<option value="' + s.key + '">' + s.name + '</option>';
+  }).join('') + '<option value="bench">Not assigned</option>';
+
+  var mSite = document.getElementById('mSite');
+  function fillSites(sel, cur) {
+    sel.innerHTML = B.sites.map(function (s) { return '<option value="' + s.key + '">' + s.name + '</option>'; }).join('') +
+      '<option value="bench">Not assigned</option>';
+    if (cur) sel.value = cur;
+  }
+  fillSites(mSite, 'bench');
+  fillSites(document.getElementById('mvSite'), B.sites[0].key);
+
+  /* ---------- counts ---------- */
+  function counts() {
+    var total = B.roster.length;
+    var active = B.roster.filter(function (o) { return o.emp !== 'suspended'; }).length;
+    var suspended = total - active;
+    var issued = B.roster.filter(function (o) { return !!o.tag; }).length;
+    document.getElementById('counts').innerHTML =
+      '<div class="hc"><b>' + total + '</b><span>Registered</span></div>' +
+      '<div class="hc"><b>' + active + '</b><span>Active</span></div>' +
+      '<div class="hc opt site"><b>' + suspended + '</b><span>Suspended</span></div>' +
+      '<div class="hc opt"><b>' + issued + '</b><span>NFC issued</span></div>';
+  }
+
+  /* ---------- rows ---------- */
+  function sorted() {
+    return B.roster.filter(matches).slice().sort(function (a, b) { return code(a) < code(b) ? -1 : 1; });
+  }
+
+  function render() {
+    var list = sorted();
+    document.getElementById('rows').innerHTML = list.map(function (o) {
+      var cls = o.emp === 'suspended' || o.state === 'off' ? 'off' : o.state === 'noshow' ? 'noshow' : o.state;
+      var t = tag(o);
+      return '<tr data-o="' + o.id + '" tabindex="0">' +
+        '<td><div class="gd">' + B.avatarHTML(o) +
+          '<div class="gd-main"><div class="gd-name">' + esc(o.name) + '</div>' +
+          '<div class="gd-phone">' + esc(o.phone) + '</div></div></div></td>' +
+        '<td class="col-id"><span class="gid">' + code(o) + '</span></td>' +
+        '<td class="' + (o.site === 'bench' ? 'dim' : 'name') + '" title="' + esc(siteName(o.site)) + '">' + esc(siteName(o.site)) + '</td>' +
+        '<td><span class="stt ' + cls + '">' + statusOf(o) + '</span></td>' +
+        '<td class="col-sign ' + (o.time === '—' ? 'dim' : 'n') + '">' + (o.time === '—' ? 'Not signed' : o.time) + '</td>' +
+        '<td class="col-nfc"><div class="tagcell">' +
+          (t ? '<span class="tag">' + t + '</span><button class="copy" type="button" data-copy="' + t + '" aria-label="Copy ' + t + '">' + icon('copy') + '</button>'
+             : '<span class="tag off">Not issued</span>') +
+        '</div></td>' +
+        '<td class="acts"><button class="act" type="button" data-view>View</button>' +
+          '<button class="act" type="button" data-edit>Edit</button>' +
+          '<button class="act del" type="button" data-del>Delete</button></td>' +
+      '</tr>';
+    }).join('');
+
+    document.getElementById('empty').hidden = list.length > 0;
+    document.getElementById('rowCount').textContent = list.length + (list.length === 1 ? ' guard' : ' guards');
+    document.getElementById('footL').textContent = 'Showing ' + list.length + ' of ' + B.roster.length + ' guards';
+    var open = B.roster.filter(function (o) { return o.state === 'noshow'; }).length;
+    document.getElementById('footR').textContent = open ? open + ' not signed in today' : '';
+    counts();
+  }
+
+  stateFilter.addEventListener('change', function () { state.filter = stateFilter.value; render(); });
+  siteFilter.addEventListener('change', function () { state.site = siteFilter.value; render(); });
+  document.getElementById('q').addEventListener('input', function (e) { state.q = e.target.value.trim(); render(); });
+
+  document.getElementById('export').addEventListener('click', function () {
+    var rows = [['Guard', 'Guard ID', 'Phone', 'NIN', 'Site', 'Employment', 'Shift', 'Monthly salary', 'Status', 'Morning sign-in', 'NFC tag']];
+    sorted().forEach(function (o) {
+      rows.push([o.name, code(o), o.phone, o.nin || '', siteName(o.site),
+        o.emp === 'suspended' ? 'Suspended' : 'Active', shiftLabel(o), o.salary || 0,
+        statusOf(o), o.time, tag(o) || 'Not issued']);
+    });
+    var csv = rows.map(function (r) { return r.map(function (c) { return '"' + String(c).replace(/"/g, '""') + '"'; }).join(','); }).join('\r\n');
+    var url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    var a = document.createElement('a');
+    a.href = url; a.download = 'bastion-guards.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+    toast('Exported ' + (rows.length - 1) + ' guards to CSV', 'download');
+  });
+
+  /* ---------- row actions ---------- */
+  var rowsEl = document.getElementById('rows');
+  rowsEl.addEventListener('click', function (e) {
+    var tr = e.target.closest('tr[data-o]'); if (!tr) return;
+    var id = tr.getAttribute('data-o');
+    var copyBtn = e.target.closest('[data-copy]');
+    if (copyBtn) {
+      var text = copyBtn.getAttribute('data-copy');
+      if (navigator.clipboard) navigator.clipboard.writeText(text).catch(function () {});
+      toast(text + ' copied', 'copy');
+      return;
+    }
+    if (e.target.closest('[data-view]')) { open(id); return; }
+    if (e.target.closest('[data-edit]')) { openModal(id); return; }
+    if (e.target.closest('[data-del]')) {
+      if (!tr.querySelector('.conf')) armDelete(tr, id);
+      return;
+    }
+    if (e.target.closest('[data-yes]')) { removeGuard(id); return; }
+    if (e.target.closest('[data-no]')) render();
+    else open(id);
+  });
+
+  function armDelete(tr, id) {
+    var acts = tr.querySelector('.acts');
+    acts.innerHTML = '<span class="conf">Remove guard?</span>' +
+      '<button class="act yes" type="button" data-yes>Remove</button>' +
+      '<button class="act" type="button" data-no>Cancel</button>';
+    tr.querySelector('[data-yes]').focus();
+  }
+
+  function removeGuard(id) {
+    var i = B.roster.findIndex(function (x) { return x.id === id; });
+    if (i < 0) return;
+    var gone = B.roster.splice(i, 1)[0];
+    boardStore.save();
+    render();
+    toast(gone.name + ' removed from the roster', 'trash');
+  }
+
+  rowsEl.addEventListener('keydown', function (e) {
+    var tr = e.target.closest('tr[data-o]');
+    if (tr && e.key === 'Enter' && e.target === tr) open(tr.getAttribute('data-o'));
+  });
+
+  /* ---------- drawer ---------- */
+  var scrim = document.getElementById('scrim');
+  var drawer = document.getElementById('drawer');
+  var ctl = mountDrawer(drawer, scrim);
+
+  function open(id) {
+    var o = B.roster.filter(function (x) { return x.id === id; })[0];
+    if (!o) return;
+    state.open = id;
+    var s = B.site(o.site);
+    document.getElementById('drPhoto').innerHTML = B.avatarHTML(o);
+    document.getElementById('drPhotoPick').textContent = o.photo ? 'Change photo' : 'Add photo';
+    document.getElementById('drPhotoClear').hidden = !o.photo;
+    document.getElementById('drName').textContent = o.name;
+    document.getElementById('drSub').textContent = code(o) + ' · ' + o.post + ' · ' + siteName(o.site);
+    document.getElementById('drState').textContent = statusOf(o);
+    document.getElementById('drTime').textContent = o.time;
+    document.getElementById('drPatrol').textContent = o.site === 'bench' ? '—' : '14 / 14';
+    document.getElementById('drHours').textContent = o.site === 'bench' ? '0' : '46.5';
+    document.getElementById('drCode').value = code(o);
+    document.getElementById('drTagLine').textContent = o.tag ? o.tag + ' · active' : 'No tag issued. Replace tag creates one.';
+    document.getElementById('drSuspend').textContent = o.emp === 'suspended' ? 'Reactivate' : 'Suspend';
+    document.getElementById('drKv').innerHTML =
+      '<dt>Guard ID</dt><dd class="mono">' + code(o) + '</dd>' +
+      '<dt>Site</dt><dd>' + esc(siteName(o.site)) + '</dd>' +
+      '<dt>Client</dt><dd>' + esc(s ? s.client : '—') + '</dd>' +
+      '<dt>Phone</dt><dd class="mono">' + esc(o.phone) + '</dd>' +
+      '<dt>NIN</dt><dd class="mono">' + (o.nin ? '••••' + String(o.nin).slice(-4) : '—') + '</dd>' +
+      '<dt>Salary</dt><dd class="mono">₦' + Number(o.salary || 0).toLocaleString('en-NG') + '</dd>' +
+      '<dt>Shift</dt><dd>' + shiftLabel(o) + '</dd>' +
+      '<dt>Employment</dt><dd>' + (o.emp === 'suspended' ? 'Suspended' : 'Active') + ' · since ' + esc(o.added) + '</dd>';
+    document.getElementById('drShifts').innerHTML = [
+      ['16 Nov', siteName(o.site), o.post, o.time],
+      ['15 Nov', siteName(o.site), o.post, '05:58'],
+      ['14 Nov', siteName(o.site), o.post, '06:01'],
+      ['13 Nov', siteName(o.site), o.post, '05:56']
+    ].map(function (r) {
+      return '<tr><td class="dim">' + r[0] + '</td><td class="name">' + esc(r[1]) + '</td><td class="dim">' + esc(r[2]) + '</td><td class="n">' + r[3] + '</td></tr>';
+    }).join('');
+    document.getElementById('mvSite').value = o.site === 'bench' ? B.sites[0].key : (B.sites.filter(function (x) { return x.key !== o.site; })[0] || B.sites[0]).key;
+    ctl.open();
+  }
+
+  document.getElementById('mvGo').addEventListener('click', function () {
+    var o = B.roster.filter(function (x) { return x.id === state.open; })[0];
+    if (!o) return;
+    var to = document.getElementById('mvSite').value;
+    o.site = to;
+    o.state = to === 'bench' ? 'off' : 'on';
+    o.time = to === 'bench' ? '—' : '08:42';
+    boardStore.save();
+    ctl.close();
+    render();
+    toast(o.name.split(' ')[0] + ' moved to ' + siteName(to), 'swap');
+  });
+
+  document.getElementById('drEdit').addEventListener('click', function () {
+    var id = state.open; ctl.close(); openModal(id);
+  });
+
+  /* ---------- photos ---------- */
+  function readPhoto(file, done) {
+    var reader = new FileReader();
+    reader.onload = function () {
+      var img = new Image();
+      img.onload = function () {
+        var scale = Math.min(1, 320 / Math.max(img.width, img.height));
+        var canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        done(canvas.toDataURL('image/jpeg', 0.82));
+      };
+      img.onerror = function () { done(null); };
+      img.src = reader.result;
+    };
+    reader.onerror = function () { done(null); };
+    reader.readAsDataURL(file);
+  }
+  function wirePhoto(input, onDone) {
+    input.addEventListener('change', function () {
+      var file = input.files && input.files[0];
+      input.value = '';
+      if (!file) return;
+      readPhoto(file, function (url) { if (url) onDone(url); else toast('Could not read that photo', 'alert'); });
+    });
+  }
+  function paintPhoto() {
+    var img = document.getElementById('mPhotoImg');
+    var glyph = document.getElementById('mPhotoIcon');
+    if (state.photo) { img.src = state.photo; img.hidden = false; glyph.style.display = 'none'; }
+    else { img.hidden = true; img.removeAttribute('src'); glyph.style.display = ''; }
+    document.getElementById('mPhotoClear').hidden = !state.photo;
+    document.getElementById('mPhotoPick').textContent = state.photo ? 'Retake photo' : 'Take or upload photo';
+  }
+  wirePhoto(document.getElementById('mPhotoFile'), function (url) { state.photo = url; paintPhoto(); });
+  wirePhoto(document.getElementById('drPhotoFile'), function (url) {
+    var o = findGuard(state.open); if (!o) return;
+    o.photo = url; render(); open(o.id); toast('Photo saved on ' + o.name, 'camera');
+  });
+  document.getElementById('mPhotoPick').addEventListener('click', function () { document.getElementById('mPhotoFile').click(); });
+  document.getElementById('mPhoto').addEventListener('click', function () { document.getElementById('mPhotoFile').click(); });
+  document.getElementById('mPhotoClear').addEventListener('click', function () { state.photo = null; paintPhoto(); });
+  document.getElementById('drPhotoPick').addEventListener('click', function () { document.getElementById('drPhotoFile').click(); });
+  document.getElementById('drPhotoClear').addEventListener('click', function () {
+    var o = findGuard(state.open); if (!o) return;
+    o.photo = null; render(); open(o.id); toast('Photo removed from ' + o.name, 'trash');
+  });
+
+  function findGuard(id) { return B.roster.filter(function (x) { return x.id === id; })[0]; }
+  function nextTag() {
+    var max = 1000;
+    B.roster.forEach(function (o) {
+      var n = parseInt(String(o.tag || '').replace(/\D/g, ''), 10);
+      if (n > max) max = n;
+    });
+    return 'NFC-' + (max + 1);
+  }
+  function nextGuardCode() {
+    var max = 0;
+    B.roster.forEach(function (o) { var n = parseInt(code(o), 10); if (n > max) max = n; });
+    return ('00' + (max + 1)).slice(-3);
+  }
+
+  /* ---------- drawer: guard ID, tag, employment ---------- */
+  document.getElementById('drCodeSave').addEventListener('click', function () {
+    var o = findGuard(state.open); if (!o) return;
+    var value = document.getElementById('drCode').value.trim();
+    if (!/^\d{3}$/.test(value)) { toast('Guard ID must be 3 digits, e.g. 001', 'alert'); return; }
+    var clash = B.roster.filter(function (x) { return x.id !== o.id && code(x) === value; })[0];
+    if (clash) { toast('Guard ID ' + value + ' is already used by ' + clash.name, 'alert'); return; }
+    o.code = value; render(); open(o.id);
+    toast('Guard ID saved · ' + value, 'check');
+  });
+  document.getElementById('drTagNew').addEventListener('click', function () {
+    var o = findGuard(state.open); if (!o) return;
+    o.tag = nextTag(); render(); open(o.id);
+    toast('New tag issued · ' + o.tag, 'nfc');
+  });
+  document.getElementById('drSuspend').addEventListener('click', function () {
+    var o = findGuard(state.open); if (!o) return;
+    o.emp = o.emp === 'suspended' ? 'active' : 'suspended';
+    render(); open(o.id);
+    toast(o.name + (o.emp === 'suspended' ? ' suspended' : ' reactivated'), 'lock');
+  });
+
+  /* ---------- register / edit modal ---------- */
+  var modal = document.getElementById('modal');
+  var form = document.getElementById('mForm');
+  var doneView = document.getElementById('mDone');
+  var lastFocus = null;
+
+  function openModal(id) {
+    state.editing = id || null;
+    var o = id ? findGuard(id) : null;
+    state.photo = o ? (o.photo || null) : null;
+    document.getElementById('mTitle').textContent = o ? 'Edit guard' : 'Register guard';
+    document.getElementById('mSave').textContent = o ? 'Save changes' : 'Register guard';
+    document.getElementById('mName').value = o ? o.name : '';
+    document.getElementById('mPhone').value = o ? o.phone : '';
+    document.getElementById('mNin').value = o ? (o.nin || '') : '';
+    document.getElementById('mSalary').value = o ? o.salary : 150000;
+    document.getElementById('mShift').value = o ? (o.shift || '') : '';
+    fillSites(mSite, o ? o.site : 'bench');
+    document.getElementById('mErr').hidden = true;
+    document.getElementById('mHint').textContent = o
+      ? 'Guard ID ' + code(o) + ' is kept. Salary feeds payroll.'
+      : 'A guard ID is issued on save, and the NFC tag is created with the record.';
+    form.hidden = false; doneView.hidden = true;
+    paintPhoto();
+    lastFocus = document.activeElement;
+    modal.classList.add('open');
+    document.getElementById('mName').focus();
+  }
+  function closeModal() {
+    modal.classList.remove('open');
+    state.photo = null;
+    if (lastFocus && lastFocus.focus) lastFocus.focus();
+  }
+  function showErr(message, focusId) {
+    var box = document.getElementById('mErr');
+    box.textContent = message; box.hidden = false;
+    if (focusId) document.getElementById(focusId).focus();
+  }
+  document.getElementById('mX').addEventListener('click', closeModal);
+  document.getElementById('mCancel').addEventListener('click', closeModal);
+  modal.addEventListener('click', function (e) { if (e.target === modal) closeModal(); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && modal.classList.contains('open')) closeModal();
+  });
+
+  function saveModal() {
+    var name = document.getElementById('mName').value.trim();
+    var phone = document.getElementById('mPhone').value.trim();
+    var nin = document.getElementById('mNin').value.trim();
+    var site = mSite.value;
+    var shift = document.getElementById('mShift').value || null;
+    var salary = Math.round(Number(document.getElementById('mSalary').value));
+    document.getElementById('mErr').hidden = true;
+    if (name.length < 2) return showErr('Enter the guard’s full name.', 'mName');
+    if (phone.replace(/\D/g, '').length < 7) return showErr('Phone needs at least 7 digits.', 'mPhone');
+    if (!/^\d{11}$/.test(nin)) return showErr('NIN must be exactly 11 digits.', 'mNin');
+    if (!isFinite(salary) || salary < 0) return showErr('Enter a monthly salary in naira.', 'mSalary');
+
+    var o = state.editing ? findGuard(state.editing) : null;
+    if (o) {
+      o.name = name;
+      o.phone = phone;
+      o.nin = nin;
+      o.salary = salary;
+      o.shift = shift;
+      o.photo = state.photo;
+      o.initials = name.split(' ').map(function (w) { return w[0]; }).join('').slice(0, 2).toUpperCase();
+      if (o.site !== site) {
+        o.site = site;
+        o.state = site === 'bench' ? 'off' : 'on';
+        o.time = site === 'bench' ? '—' : '08:42';
+      }
+      boardStore.save();
+      closeModal(); render(); open(o.id);
+      toast(name + ' updated', 'check');
+      return;
+    }
+
+    var id = 'OFF-' + (1001 + B.roster.length);
+    while (findGuard(id)) id = 'OFF-' + (Number(id.slice(4)) + 1);
+    o = {
+      id: id, code: nextGuardCode(), name: name, phone: phone, nin: nin,
+      post: site === 'bench' ? 'Patrol officer' : 'Gate officer',
+      site: site, time: site === 'bench' ? '—' : '08:42',
+      state: site === 'bench' ? 'off' : 'on',
+      initials: name.split(' ').map(function (w) { return w[0]; }).join('').slice(0, 2).toUpperCase(),
+      photo: state.photo, salary: salary, shift: shift,
+      emp: 'active', tag: nextTag(), added: 'Nov 2026'
+    };
+    B.roster.push(o);
+    boardStore.save();
+    render();
+    showDone(o);
+  }
+
+  function showDone(o) {
+    state.done = o;
+    form.hidden = true; doneView.hidden = false;
+    document.getElementById('dAv').innerHTML = B.avatarHTML(o);
+    document.getElementById('dName').textContent = o.name;
+    document.getElementById('dSub').textContent = (o.site === 'bench' ? 'Unassigned' : siteName(o.site)) + ' · ' + o.post;
+    document.getElementById('dCode').textContent = code(o);
+    document.getElementById('dTag').textContent = o.tag || 'No tag issued';
+    document.getElementById('dWriteState').textContent = o.tag ? 'Not written yet.' : 'Assign a site to issue a tag.';
+    var write = document.getElementById('dWrite');
+    write.disabled = !o.tag;
+    write.innerHTML = icon('nfc') + 'Write guard ID to tag';
+    document.getElementById('dDone').focus();
+    toast(o.name + ' registered · ' + code(o), 'users');
+  }
+  document.getElementById('mSave').addEventListener('click', saveModal);
+  form.addEventListener('submit', function (e) { e.preventDefault(); saveModal(); });
+  form.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && e.target.tagName === 'INPUT') { e.preventDefault(); saveModal(); }
+  });
+  document.getElementById('dWrite').addEventListener('click', function () {
+    var o = state.done; if (!o) return;
+    var btn = this;
+    btn.disabled = true;
+    document.getElementById('dWriteState').textContent = 'Writing…';
+    setTimeout(function () {
+      btn.innerHTML = icon('check') + 'Tag written';
+      document.getElementById('dWriteState').textContent = o.tag + ' carries guard ID ' + code(o) + '.';
+      toast('Guard ID ' + code(o) + ' written to ' + o.tag, 'check');
+    }, 650);
+  });
+  document.getElementById('dCopy').addEventListener('click', function () {
+    var o = state.done; if (!o || !o.tag) return;
+    if (navigator.clipboard) navigator.clipboard.writeText(o.tag).catch(function () {});
+    toast(o.tag + ' copied', 'copy');
+  });
+  document.getElementById('dAnother').addEventListener('click', function () { openModal(null); });
+  document.getElementById('dDone').addEventListener('click', function () { closeModal(); render(); });
+
+  document.getElementById('register').addEventListener('click', function () { openModal(null); });
+
+  /* ---------- boot ---------- */
+  stateFilter.value = 'all';
+  render();
+
+  var params = new URLSearchParams(location.search);
+  if (params.get('guard')) open(params.get('guard'));
+})();
+</script>
+</body>
+</html>

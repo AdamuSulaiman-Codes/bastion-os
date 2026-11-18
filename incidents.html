@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Incidents · Bastion OS</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="css/console.css">
+<script src="js/splash.js"></script>
+<link rel="stylesheet" href="css/pages.css">
+<style>
+  .inc-body { display: flex; flex-direction: column; gap: 10px; }
+  .inc-main { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.02fr) minmax(420px, 1fr); gap: 10px; }
+  .inc-list { display: flex; flex-direction: column; min-height: 0; }
+  .inc-list .il-scroll { overflow: auto; min-height: 0; flex: 1 1 auto; }
+  .irow { display: grid; grid-template-columns: 72px minmax(0, 1fr) auto; gap: 8px; align-items: center; width: 100%; text-align: left; padding: 8px 10px 8px 12px; border-bottom: 1px solid var(--line-2); }
+  .irow:hover { background: #f8f8f8; }
+  .irow[aria-selected="true"] { background: var(--blue-bg); }
+  .irow .i-id { font: 600 9.5px/1 var(--mono); color: var(--faint); }
+  .irow .i-title { font-size: 12px; font-weight: 500; color: var(--text); }
+  .irow .i-meta { font: 500 9.5px/1.3 var(--mono); color: var(--muted); margin-top: 3px; display: flex; gap: 6px; }
+  .irow .i-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+  .irow .i-time { font: 500 9.5px/1 var(--mono); color: var(--faint); }
+  .updates { display: flex; flex-direction: column; gap: 0; }
+  .update { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 8px; padding: 6px 0; position: relative; }
+  .update .u-time { font: 500 9px/1.5 var(--mono); color: var(--faint); text-align: right; }
+  .update .u-body { font-size: 11.5px; color: var(--text-2); line-height: 1.45; }
+  .update .u-body b { color: var(--text); }
+  .update .u-line { position: absolute; left: 56px; top: 0; bottom: 0; width: 1px; background: var(--line); }
+  .update:first-child .u-line { top: 10px; }
+  .update:last-child .u-line { bottom: calc(100% - 12px); }
+  .composer { border-top: 1px solid var(--line); padding: 8px 10px; background: var(--panel-2); display: flex; gap: 6px; }
+  .composer .textarea { min-height: 30px; height: 30px; }
+  .actbar { display: flex; gap: 6px; align-items: center; padding: 7px 10px; border-top: 1px solid var(--line); background: var(--panel); }
+  .sev-tabs button { height: 26px; }
+</style>
+</head>
+<body data-nav="incidents" data-crumb="Operations" data-here="Incidents">
+<div class="app">
+  <aside data-shell="rail"></aside>
+  <div class="shell">
+    <header data-shell="topbar"></header>
+
+    <div class="page">
+      <div class="page-head">
+        <div class="page-title">Incidents</div>
+        <div class="page-tools">
+          <button class="btn sm" type="button" data-toast="Incident register exported to CSV"><svg class="ic"><use href="#i-download"/></svg>Export</button>
+          <button class="btn primary sm" type="button" id="newIncident"><svg class="ic"><use href="#i-plus"/></svg>New incident</button>
+        </div>
+      </div>
+
+      <div class="body inc-body">
+        <section class="kpis" aria-label="Incident summary">
+          <div class="kpi flag"><div class="k-label"><span class="micro">Open</span></div><div class="k-val" id="kOpen">4</div><div class="k-sub">1 critical · 2 investigating</div></div>
+          <div class="kpi"><div class="k-label"><span class="micro">Critical</span></div><div class="k-val">1</div><div class="k-sub">Cedar Mall · Gate B</div></div>
+          <div class="kpi"><div class="k-label"><span class="micro">Median ack</span></div><div class="k-val">4<small>m</small></div><div class="k-sub">target 5 · 7-day</div></div>
+          <div class="kpi"><div class="k-label"><span class="micro">Resolved today</span></div><div class="k-val">1</div><div class="k-sub">cleared package · Civic</div></div>
+          <div class="kpi"><div class="k-label"><span class="micro">Escalated</span></div><div class="k-val">1</div><div class="k-sub">Lagos Police · 08:34</div></div>
+        </section>
+
+        <div class="inc-main">
+          <section class="panel inc-list">
+            <div class="panel-head">
+              <h2>Queue</h2><span class="cap" id="listCap">5</span>
+              <div class="panel-tools">
+                <div class="seg" role="group" aria-label="Filter severity">
+                  <button type="button" aria-pressed="true" data-f="all">All</button>
+                  <button type="button" aria-pressed="false" data-f="Critical">Critical</button>
+                  <button type="button" aria-pressed="false" data-f="Open">Open</button>
+                  <button type="button" aria-pressed="false" data-f="Resolved">Resolved</button>
+                </div>
+              </div>
+            </div>
+            <div style="padding:7px 8px;border-bottom:1px solid var(--line);background:var(--panel-2)">
+              <label class="field">
+                <svg class="ic"><use href="#i-search"/></svg>
+                <input type="text" id="q" placeholder="Title, site or owner" aria-label="Search incidents">
+              </label>
+            </div>
+            <div class="il-scroll" id="list" role="listbox" aria-label="Incident queue"></div>
+            <div class="panel-foot"><span id="foot">4 open · 1 critical</span></div>
+          </section>
+
+          <section class="panel" id="detail">
+            <div class="panel-head">
+              <h2 id="dTitle">SOS at Gate B</h2>
+              <span class="cap" id="dId">INC-2415 · Cedar Mall</span>
+              <div class="panel-tools"><span class="chip bad" id="dSev">Critical</span></div>
+            </div>
+            <div class="rec-metrics">
+              <div class="rec-metric"><div class="m-lbl">State</div><div class="m-val" id="dState" style="font-size:12px">Open</div></div>
+              <div class="rec-metric"><div class="m-lbl">Owner</div><div class="m-val" id="dOwner" style="font-size:11px">Fatima Bello</div></div>
+              <div class="rec-metric"><div class="m-lbl">Reported</div><div class="m-val" id="dTime" style="font-size:12px">08:31</div></div>
+              <div class="rec-metric"><div class="m-lbl">Age</div><div class="m-val" id="dAge" style="font-size:12px">11 m</div></div>
+            </div>
+            <div class="wrap-scroll" style="flex:1 1 auto;padding:0 12px">
+              <div class="hstack" style="padding:9px 0 4px"><span class="lbl">Summary</span><span class="right tagline" id="dGeo">Inside geofence · 120 m</span></div>
+              <div class="evidence" id="dDetail" style="border-left:3px solid var(--red)">—</div>
+              <div class="hstack" style="padding:10px 0 2px"><span class="lbl">Updates</span><span class="right tagline" id="uCount">3</span></div>
+              <div class="updates" id="updates"></div>
+            </div>
+            <div class="composer">
+              <textarea class="textarea" id="comment" placeholder="Add an update" aria-label="Add an update"></textarea>
+              <button class="btn sm primary" type="button" id="post">Post</button>
+            </div>
+            <div class="actbar">
+              <button class="btn sm" type="button" id="escalate">Escalate to client</button>
+              <button class="btn sm" type="button" id="close">Resolve</button>
+              <span class="right" id="dFoot">Lagos Police notified 08:34</span>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <footer data-shell="status"></footer>
+    </div>
+  </div>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/shell.js"></script>
+<script>
+(function () {
+  boardStore.apply();
+  var state = { f: 'all', q: '', sel: 'INC-2415', resolved: {} };
+  var UPDATES = {
+    'INC-2415': [
+      { t: '08:31', b: '<b>SOS raised</b> from the guard app at Gate B. Fatima Bello.' },
+      { t: '08:33', b: 'Two officers moved to Gate B. Turnstile held open.' },
+      { t: '08:34', b: '<b>Lagos Police notified.</b> No injuries reported.' },
+      { t: '08:39', b: 'Client duty manager on site. Statement still outstanding.', minor: true }
+    ],
+    'INC-2412': [
+      { t: '07:12', b: '<b>Forced service door</b> reported on level 2. No entry gained.' },
+      { t: '07:20', b: 'CCTV pulled for 06:40–07:10.' },
+      { t: '07:44', b: 'Contractor list requested from LTC facilities.', minor: true }
+    ],
+    'INC-2409': [
+      { t: '06:02', b: '<b>Unauthorised vehicle</b> at the wharf gate.' },
+      { t: '06:09', b: 'Vehicle turned back. Plate logged and passed to the client.' }
+    ],
+    'INC-2407': [
+      { t: '21:40', b: '<b>Fence damage</b> on the north boundary. Two panels pushed in.' },
+      { t: '22:15', b: 'Temporary weld complete. Permanent repair booked.' }
+    ],
+    'INC-2404': [
+      { t: '19:22', b: '<b>Cleared package</b> left at the lobby.' },
+      { t: '19:48', b: 'Owner collected. Log closed.' }
+    ]
+  };
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+  function incs() {
+    return B.incidents.map(function (i) {
+      var r = { id: i.id, sev: i.sev, site: i.site, title: i.title, t: i.t, owner: i.owner, detail: i.detail };
+      r.state = state.resolved[i.id] || i.state;
+      return r;
+    });
+  }
+  function sevClass(s) { return s === 'Critical' ? 'bad' : s === 'High' ? 'warn' : s === 'Medium' ? 'info' : 'ok'; }
+  function siteName(k) { return (B.site(k) || { name: '—' }).name; }
+  /* minutes since the record was raised, measured against the 08:42 shift clock */
+  function ageSince(t) {
+    var p = t.split(':');
+    var mins = (8 * 60 + 42) - (parseInt(p[0], 10) * 60 + parseInt(p[1], 10));
+    if (mins < 0) mins += 24 * 60;
+    return mins >= 60 ? Math.floor(mins / 60) + 'h ' + (mins % 60) + 'm' : mins + ' m';
+  }
+
+  function renderList() {
+    var list = incs().filter(function (i) {
+      if (state.f === 'Critical' && i.sev !== 'Critical') return false;
+      if (state.f === 'Open' && i.state === 'Resolved') return false;
+      if (state.f === 'Resolved' && i.state !== 'Resolved') return false;
+      if (state.q) {
+        var q = state.q.toLowerCase();
+        if ((i.title + ' ' + i.id + ' ' + i.owner + ' ' + siteName(i.site)).toLowerCase().indexOf(q) === -1) return false;
+      }
+      return true;
+    });
+    document.getElementById('list').innerHTML = list.length ? list.map(function (i) {
+      return '<button class="irow" type="button" role="option" aria-selected="' + (i.id === state.sel) + '" data-i="' + i.id + '">' +
+        '<span class="i-id">' + i.id + '</span>' +
+        '<span style="min-width:0"><span class="i-title">' + esc(i.title) + '</span>' +
+          '<span class="i-meta"><span>' + esc(siteName(i.site)) + '</span><span>·</span><span>' + esc(i.owner) + '</span></span></span>' +
+        '<span class="i-right"><span class="i-time">' + i.t + '</span><span class="chip ' + (i.state === 'Resolved' ? 'ok' : i.sev === 'Critical' ? 'bad' : 'warn') + '">' + i.state + '</span></span>' +
+      '</button>';
+    }).join('') : '<div class="empty"><strong>No incident matches</strong>Try another severity or clear the search.</div>';
+    document.getElementById('listCap').textContent = list.length;
+    var open = incs().filter(function (i) { return i.state !== 'Resolved'; }).length;
+    document.getElementById('kOpen').textContent = open;
+    document.getElementById('foot').textContent = open + ' open · 1 critical';
+  }
+
+  function select(id) {
+    var i = incs().filter(function (x) { return x.id === id; })[0];
+    if (!i) return;
+    state.sel = id;
+    document.getElementById('dTitle').textContent = i.title;
+    document.getElementById('dId').textContent = i.id + ' · ' + siteName(i.site);
+    var sev = document.getElementById('dSev');
+    sev.className = 'chip ' + sevClass(i.sev);
+    sev.textContent = i.sev;
+    document.getElementById('dState').textContent = i.state;
+    document.getElementById('dOwner').textContent = i.owner;
+    document.getElementById('dTime').textContent = i.t;
+    document.getElementById('dAge').textContent = i.state === 'Resolved' ? 'closed' : ageSince(i.t);
+    document.getElementById('dDetail').textContent = i.detail;
+    document.getElementById('dDetail').style.borderLeftColor = i.sev === 'Critical' ? 'var(--red)' : i.sev === 'High' ? 'var(--amber)' : 'var(--line-strong)';
+    document.getElementById('dGeo').textContent = 'Inside geofence · ' + (B.site(i.site) || { geo: '—' }).geo;
+    document.getElementById('dFoot').textContent = i.state === 'Resolved' ? 'Closed · ' + i.t : i.sev === 'Critical' ? 'Lagos Police notified 08:34' : 'Client duty manager copied';
+    var ups = UPDATES[i.id] || [];
+    document.getElementById('uCount').textContent = ups.length + ' updates';
+    document.getElementById('updates').innerHTML = ups.map(function (u) {
+      return '<div class="update' + (u.minor ? ' minor' : '') + '">' +
+        '<span class="u-time">' + u.t + '</span><span class="u-line"></span>' +
+        '<span class="u-body">' + u.b + '</span></div>';
+    }).join('');
+    var cc = document.getElementById('close');
+    cc.textContent = i.state === 'Resolved' ? 'Reopen' : 'Resolve';
+    renderList();
+  }
+
+  document.getElementById('list').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-i]'); if (b) select(b.getAttribute('data-i'));
+  });
+  document.querySelectorAll('[data-f]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      document.querySelectorAll('[data-f]').forEach(function (x) { x.setAttribute('aria-pressed', 'false'); });
+      b.setAttribute('aria-pressed', 'true');
+      state.f = b.getAttribute('data-f');
+      renderList();
+    });
+  });
+  document.getElementById('q').addEventListener('input', function (e) { state.q = e.target.value.trim(); renderList(); });
+  document.getElementById('newIncident').addEventListener('click', function () { toast('Incident form opens with the site prefilled', 'alert'); });
+
+  document.getElementById('post').addEventListener('click', function () {
+    var box = document.getElementById('comment');
+    var v = box.value.trim(); if (!v) return;
+    var t = new Date();
+    var hh = String(t.getHours()).padStart(2, '0'), mm = String(t.getMinutes()).padStart(2, '0');
+    (UPDATES[state.sel] = UPDATES[state.sel] || []).push({ t: hh + ':' + mm, b: '<b>You</b> · ' + esc(v) });
+    box.value = '';
+    select(state.sel);
+    toast('Update added to ' + state.sel, 'check');
+  });
+  document.getElementById('close').addEventListener('click', function () {
+    var i = incs().filter(function (x) { return x.id === state.sel; })[0];
+    if (!i) return;
+    if (i.state === 'Resolved') { delete state.resolved[i.id]; toast(state.sel + ' reopened', 'refresh'); }
+    else { state.resolved[i.id] = 'Resolved'; toast(state.sel + ' resolved', 'check'); }
+    select(state.sel);
+  });
+  document.getElementById('escalate').addEventListener('click', function () {
+    (UPDATES[state.sel] = UPDATES[state.sel] || []).push({ t: '08:42', b: '<b>Escalated to the client</b> duty manager. Copy sent to operations.' });
+    select(state.sel);
+    toast('Escalated to the client', 'send');
+  });
+
+  renderList();
+  select(state.sel);
+})();
+</script>
+</body>
+</html>

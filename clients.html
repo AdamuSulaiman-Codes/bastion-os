@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clients · Bastion OS</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="css/console.css">
+<script src="js/splash.js"></script>
+<link rel="stylesheet" href="css/pages.css">
+<link rel="stylesheet" href="css/fin.css">
+</head>
+<body data-nav="clients" data-crumb="Finances">
+<div class="app">
+  <aside data-shell="rail"></aside>
+  <div class="shell">
+    <header data-shell="topbar"></header>
+
+    <div class="page">
+      <div class="page-head">
+        <div class="page-title">Clients <span class="id">8 ACCOUNTS</span></div>
+        <div class="page-tools">
+          <label class="field" style="min-width:230px">
+            <svg class="ic"><use href="#i-search"/></svg>
+            <input type="text" id="q" placeholder="Find a client, contact or status" aria-label="Search clients">
+          </label>
+          <button class="btn sm" type="button" id="exportBtn"><svg class="ic"><use href="#i-download"/></svg>Export</button>
+        </div>
+      </div>
+
+      <div class="body fin-body">
+        <section class="kpis" aria-label="Client book">
+          <div class="kpi"><div class="k-label"><span class="micro">Monthly contract value</span></div><div class="k-val" id="kValue">—</div><div class="k-sub" id="kValueSub"></div></div>
+          <div class="kpi"><div class="k-label"><span class="micro">Average service level</span></div><div class="k-val" id="kSla">—</div><div class="k-sub">target 95%</div></div>
+          <div class="kpi"><div class="k-label"><span class="micro">Renewing in 90 days</span></div><div class="k-val" id="kRenew">—</div><div class="k-sub" id="kRenewSub"></div></div>
+          <div class="kpi flag"><div class="k-label"><span class="micro">Reviews due</span></div><div class="k-val" id="kReview">—</div><div class="k-sub">below 95% service</div></div>
+          <div class="kpi"><div class="k-label"><span class="micro">Largest account</span></div><div class="k-val" id="kBig">—</div><div class="k-sub" id="kBigSub"></div></div>
+        </section>
+
+        <section class="fin-charts" id="charts" aria-label="Client charts"></section>
+
+        <div class="fin-main">
+          <section class="panel table-panel">
+            <div class="panel-head"><h2>Who we work for</h2><span class="cap" id="clientCap"></span></div>
+            <div class="wrap-scroll">
+              <table class="tbl client-tbl">
+                <thead><tr><th>Client</th><th>Contact</th><th>Phone</th><th class="n">Monthly contract</th><th class="n">Service level</th><th>Renews</th><th>Status</th><th></th></tr></thead>
+                <tbody id="clientRows"></tbody>
+              </table>
+              <div class="empty" id="clientEmpty" hidden><strong>No client matches</strong>Clear the search to see all eight.</div>
+            </div>
+            <div class="panel-foot" id="clientFoot"></div>
+          </section>
+
+          <section class="panel" id="renew"></section>
+        </div>
+      </div>
+
+      <footer data-shell="status"></footer>
+    </div>
+  </div>
+</div>
+
+<div class="scrim" id="mailScrim"></div>
+<aside class="drawer" id="mailDrawer" role="dialog" aria-modal="true" aria-labelledby="mailTitle">
+  <div class="drawer-head">
+    <h2 id="mailTitle">Email client</h2>
+    <div class="panel-tools"><button class="icb" type="button" data-close aria-label="Close"><svg class="ic"><use href="#i-x"/></svg></button></div>
+  </div>
+  <div class="drawer-body">
+    <div class="form">
+      <div class="form-row"><label for="mailTo">To</label><input class="input" id="mailTo" readonly></div>
+      <div class="form-row"><label for="mailCc">Accounts contact</label><input class="input" id="mailCc" readonly></div>
+      <div class="form-row"><label for="mailSubject">Subject</label><input class="input" id="mailSubject"></div>
+      <div class="form-row"><label for="mailBody">Message</label><textarea class="textarea" id="mailBody" style="min-height:150px"></textarea></div>
+    </div>
+  </div>
+  <div class="drawer-foot">
+    <button class="btn sm" type="button" data-close>Cancel</button>
+    <button class="btn primary sm" type="button" id="sendMail" style="margin-left:auto">Send statement</button>
+  </div>
+</aside>
+
+<script src="js/data.js"></script>
+<script src="js/fin.js"></script>
+<script src="js/shell.js"></script>
+<script>
+(function () {
+  boardStore.apply();
+  var $ = function (id) { return document.getElementById(id); };
+  var q = '';
+
+  function hits(c) {
+    return !q || (c.n + ' ' + c.c + ' ' + c.e + ' ' + c.p + ' ' + c.st).toLowerCase().indexOf(q) > -1;
+  }
+
+  function paintKpis() {
+    var value = FIN.contractTotal();
+    var avg = FIN.clients.reduce(function (a, c) { return a + c.sla; }, 0) / FIN.clients.length;
+    var renew = FIN.clients.filter(function (c) { return /Jan 2027|Feb 2027|Mar 2027/.test(c.rw); });
+    var review = FIN.clients.filter(function (c) { return c.sla < FIN.slaTarget; });
+    var big = FIN.clients.slice().sort(function (a, b) { return b.v - a.v; })[0];
+
+    $('kValue').innerHTML = (value / 1e6).toFixed(2) + '<small>m</small>';
+    $('kValueSub').textContent = FIN.clients.length + ' accounts · 56 posts';
+    $('kSla').innerHTML = avg.toFixed(1) + '<small>%</small>';
+    $('kRenew').textContent = renew.length;
+    $('kRenewSub').textContent = FIN.mm(renew.reduce(function (a, c) { return a + c.v; }, 0) / 1e6) + ' of contracts';
+    $('kReview').textContent = review.length;
+    $('kBig').innerHTML = (big.v / 1e6).toFixed(2) + '<small>m</small>';
+    $('kBigSub').textContent = big.n;
+  }
+
+  function paintCharts() {
+    var byValue = FIN.clients.slice().sort(function (a, b) { return b.v - a.v; }).slice(0, 6);
+    var bySla = FIN.clients.slice().sort(function (a, b) { return a.sla - b.sla; }).slice(0, 6);
+    var quarters = [
+      { x: 'Q1 27', re: /Jan 2027|Feb 2027|Mar 2027/ },
+      { x: 'Q2 27', re: /Apr 2027|May 2027|Jun 2027/ },
+      { x: 'Q3 27', re: /Jul 2027|Aug 2027|Sep 2027/ },
+      { x: 'Q4 27', re: /Oct 2027|Nov 2027|Dec 2027/ }
+    ].map(function (qtr) {
+      var cs = FIN.clients.filter(function (c) { return qtr.re.test(c.rw); });
+      var sum = cs.reduce(function (a, c) { return a + c.v; }, 0);
+      return { x: qtr.x, a: sum / 1e5, cap: (sum / 1e6).toFixed(1) };
+    });
+    var qMax = Math.max.apply(null, quarters.map(function (q) { return q.a; })) || 1;
+
+    $('charts').innerHTML = [
+      FIN.chartCard('Contract value by client', FIN.mm(FIN.contractTotal() / 1e6),
+        FIN.bars(byValue.map(function (c) { return [c.n.replace(FIN.short, ''), c.v, FIN.mm(c.v / 1e6)]; })),
+        'Six largest of eight accounts'),
+      FIN.chartCard('Service level against target', FIN.slaTarget + '% target',
+        FIN.bars(bySla.map(function (c) {
+          return [c.n.replace(FIN.short, ''), c.sla, c.sla + '%', c.sla < FIN.slaTarget];
+        })),
+        'Six lowest · ' + FIN.clients.filter(function (c) { return c.sla < FIN.slaTarget; }).length + ' below target'),
+      FIN.chartCard('Value renewing by quarter', '₦m',
+        FIN.cols(quarters, qMax),
+        'Next twelve months')
+    ].join('');
+  }
+
+  function paintRows() {
+    var rows = FIN.clients.filter(hits);
+    $('clientRows').innerHTML = rows.map(function (c) {
+      return '<tr>' +
+        '<td class="name">' + c.n + '</td>' +
+        '<td><div class="contact-cell"><span class="cn">' + c.c + '</span><span class="cm">' + c.e + '</span></div></td>' +
+        '<td class="dim">' + c.p + '</td>' +
+        '<td class="n">' + FIN.money(c.v) + '</td>' +
+        '<td class="n">' + c.sla + '%</td>' +
+        '<td class="dim">' + c.rw + '</td>' +
+        '<td>' + FIN.chip(c.st) + '</td>' +
+        '<td><div class="rowacts"><button class="btn xs" type="button" data-mail="' + c.n + '">Email</button>' +
+        '<button class="btn xs" type="button" data-call="' + c.p + '">Call</button></div></td>' +
+        '</tr>';
+    }).join('');
+    $('clientEmpty').hidden = rows.length > 0;
+
+    var sum = FIN.contractTotal();
+    var review = FIN.clients.filter(function (c) { return c.sla < FIN.slaTarget; }).length;
+    $('clientCap').textContent = rows.length === FIN.clients.length ? FIN.clients.length + ' accounts' : rows.length + ' of ' + FIN.clients.length;
+    $('clientFoot').textContent = FIN.mm(sum / 1e6) + ' monthly contract value · ' + review + ' reviews due';
+  }
+
+  function paintRenew() {
+    var soon = FIN.clients.slice().sort(function (a, b) { return a.rw.localeCompare(b.rw); }).slice(0, 4);
+    $('renew').innerHTML =
+      '<div class="panel-head"><h2>Next renewals</h2><span class="cap">by date</span></div>' +
+      '<div class="panel-body" style="padding:0">' + soon.map(function (c) {
+        return '<div class="row"><div class="r-main"><div class="r-title">' + c.n + '</div>' +
+          '<div class="r-meta">renews ' + c.rw + ' · ' + FIN.mm(c.v / 1e6) + ' · ' + c.sla + '% service</div></div>' +
+          '<div class="r-side"><button class="btn xs" type="button" data-mail="' + c.n + '">Email</button></div></div>';
+      }).join('') + '</div>' +
+      '<div class="panel-foot"><span>4 of ' + FIN.clients.length + ' accounts</span><span class="right">' +
+      FIN.mm(soon.reduce(function (a, c) { return a + c.v; }, 0) / 1e6) + '</span></div>';
+  }
+
+  function paint() { paintKpis(); paintCharts(); paintRows(); paintRenew(); }
+
+  $('q').addEventListener('input', function (e) {
+    q = e.target.value.trim().toLowerCase();
+    paintRows();
+  });
+  $('exportBtn').addEventListener('click', function () { toast('Client book exported to CSV', 'download'); });
+
+  document.addEventListener('click', function (e) {
+    var mail = e.target.closest('[data-mail]');
+    if (mail) { openMail(mail.getAttribute('data-mail')); return; }
+    var call = e.target.closest('[data-call]');
+    if (call) { toast('Calling ' + call.getAttribute('data-call')); return; }
+  });
+
+  /* ---------- email drawer ---------- */
+  var mailDrawer = $('mailDrawer'), mailScrim = $('mailScrim'), mailOpen = false, mailClient = null;
+
+  function openMail(name) {
+    mailClient = FIN.clients.filter(function (c) { return c.n === name; })[0];
+    if (!mailClient) return;
+    $('mailTo').value = mailClient.c + ' <' + mailClient.e + '>';
+    $('mailCc').value = 'accounts@spectra.ng';
+    $('mailSubject').value = 'November statement · ' + mailClient.n;
+    $('mailBody').value =
+      'Dear ' + mailClient.c.split(' ')[0] + ',\n\n' +
+      'Attached is the November service statement for ' + mailClient.n + '.\n' +
+      'Contract value this period: ' + FIN.ngn(mailClient.v) + '. Service level: ' + mailClient.sla + '%.\n\n' +
+      'The usual invoice follows on 30 November.\n\nTolu Adeyemi\nSpectra Security';
+    mailOpen = true;
+    mailScrim.classList.add('open');
+    mailDrawer.classList.add('open');
+    setTimeout(function () { $('mailSubject').focus(); }, 60);
+  }
+  function closeMail() {
+    mailOpen = false;
+    mailScrim.classList.remove('open');
+    mailDrawer.classList.remove('open');
+  }
+  mailDrawer.querySelectorAll('[data-close]').forEach(function (b) { b.addEventListener('click', closeMail); });
+  mailScrim.addEventListener('click', closeMail);
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && mailOpen) closeMail(); });
+  $('sendMail').addEventListener('click', function () {
+    if (!mailClient) return;
+    closeMail();
+    toast('Statement sent to ' + mailClient.e, 'mail');
+  });
+
+  paint();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,566 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Assignments · Bastion OS</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="css/console.css">
+<script src="js/splash.js"></script>
+<link rel="stylesheet" href="css/pages.css">
+<style>
+  .board-body { display: flex; flex-direction: column; gap: 8px; }
+  .board-shell { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 208px minmax(0, 1fr); gap: 8px; }
+  .board-scroll { min-height: 0; overflow: auto; }
+  .board-grid { display: flex; flex-direction: column; gap: 8px; min-width: 100%; }
+  .board-row { display: grid; gap: 8px; }
+  .bench { max-height: 100%; }
+  .bench .bench-list { flex: 1 1 auto; }
+  .bench-foot { padding: 6px 8px; border-top: 1px solid var(--line); font-size: 10.5px; color: var(--muted); background: var(--panel-2); }
+  .chk { display: flex; align-items: center; gap: 5px; cursor: pointer; }
+  .chk input { margin: 0; width: 12px; height: 12px; accent-color: var(--blue); }
+  .col-head .chk input { border: 1px solid var(--line-strong); }
+  .col-head .ch-top .ico { width: 22px; height: 22px; display: grid; place-items: center; background: #f1f1f1; border: 1px solid var(--line); font: 600 8.5px/1 var(--mono); color: var(--text-2); }
+  .queue { display: flex; flex-direction: column; gap: 1px; }
+  .q-row { display: flex; align-items: center; gap: 8px; padding: 6px 9px; background: #f5f5f5; border: 1px solid var(--amber-line); font-size: 11.5px; }
+  .q-row .q-t { font: 600 10px/1 var(--mono); color: var(--amber); }
+  .q-row .q-who { color: var(--text); font-weight: 500; }
+  .q-row .q-instr { color: var(--text-2); font-style: italic; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .q-row .q-eta { font: 500 9.5px/1 var(--mono); color: var(--muted); }
+  .board-row .col { min-height: 268px; }
+  .slip .pend { grid-column: 1 / -1; color: var(--amber); font: 500 8.5px/1.3 var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-left: 3px; }
+  .col { container-type: inline-size; }
+  @container (max-width: 186px) {
+    .slip { grid-template-columns: 13px minmax(0, 1fr); }
+    .slip .s-post { display: none; }
+  }
+  @container (max-width: 132px) {
+    .slip { grid-template-columns: minmax(0, 1fr); }
+    .slip input[type="checkbox"], .slip .grip { display: none; }
+  }
+  .mv-form { display: grid; gap: 8px; }
+  .mv-form .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .pending-box { border: 1px solid var(--amber-line); background: #f5f5f5; padding: 7px 9px; font-size: 11px; color: var(--text-2); }
+  .pending-box b { color: var(--text); }
+</style>
+</head>
+<body data-nav="board" data-crumb="Operations" data-here="Assignments">
+<div class="app">
+  <aside data-shell="rail"></aside>
+  <div class="shell">
+    <header data-shell="topbar"></header>
+
+    <div class="page">
+      <div class="page-head">
+        <div class="page-title">Assignments</div>
+        <div class="crumbs">Tuesday 17 November · day shift</div>
+        <div class="page-tools">
+          <button class="btn sm" type="button" id="fill">Fill open posts</button>
+          <button class="btn ghost sm" type="button" id="resetBoard">Reset</button>
+          <button class="btn primary sm" type="button" id="publish"><svg class="ic"><use href="#i-send"/></svg>Publish roster</button>
+        </div>
+      </div>
+
+      <div class="body board-body">
+        <!-- move desk -->
+        <div class="toolbar">
+          <span class="tl"><b>Move</b></span>
+          <select class="select" id="fromSite" style="width:148px" aria-label="From site"></select>
+          <svg class="ic" style="width:13px;height:13px;color:#a2a2a2"><use href="#i-arrowRight"/></svg>
+          <select class="select" id="toSite" style="width:148px" aria-label="To site"></select>
+          <button class="btn sm" type="button" id="showPair">Show pair</button>
+          <div id="chips" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+          <select class="select" id="addSite" style="width:126px;display:none" aria-label="Add a site to the focus">
+            <option value="">Add a site…</option>
+          </select>
+          <button class="btn ghost sm" type="button" id="clearFilter" hidden>Clear</button>
+          <span class="spacer"></span>
+          <label class="field" style="min-width:190px">
+            <svg class="ic"><use href="#i-search"/></svg>
+            <input type="text" id="siteSearch" placeholder="Find a site" aria-label="Find a site">
+          </label>
+          <span class="count" id="siteCount">8 sites</span>
+        </div>
+
+        <div id="queue"></div>
+
+        <div class="bulkbar" id="bulkbar" hidden>
+          <span class="bbn" id="bulkN">0</span><span class="bbn"><em>selected</em></span>
+          <span class="lbl">To</span>
+          <select class="select" id="bulkSite" style="width:150px" aria-label="Move to site"></select>
+          <span class="lbl">When</span>
+          <select class="select" id="bulkWhen" style="width:158px" aria-label="When"></select>
+          <input class="input" id="bulkInstr" style="flex:1 1 180px;min-width:150px" placeholder="Instruction — e.g. relieve the north gate at 18:00">
+          <button class="btn primary sm" type="button" id="bulkGo">Move</button>
+          <button class="btn ghost sm" type="button" id="bulkClear" style="color:#b8b8b8">Clear</button>
+        </div>
+
+        <div class="board-shell">
+          <aside class="panel bench">
+            <div class="bench-head">
+              <h3>Dormant</h3><span class="bench-count" id="benchN">5</span>
+            </div>
+            <div class="bench-list" id="bench" data-drop="bench"></div>
+            <div class="bench-foot">Drag into a site, or tick several to move them together.</div>
+          </aside>
+          <div class="board-scroll">
+            <div class="board-grid" id="board"></div>
+          </div>
+        </div>
+      </div>
+
+      <footer data-shell="status"></footer>
+    </div>
+  </div>
+</div>
+
+<!-- officer drawer -->
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="drName">
+  <div class="drawer-head">
+    <h2>Officer record</h2>
+    <div class="panel-tools"><button class="icb" type="button" data-close aria-label="Close"><svg class="ic"><use href="#i-x"/></svg></button></div>
+  </div>
+  <div class="drawer-body" id="drBody">
+    <div class="rec-head">
+      <h2 id="drName">—</h2>
+      <div class="rec-sub" id="drSub">—</div>
+    </div>
+    <div class="rec-metrics">
+      <div class="rec-metric"><div class="m-lbl">Today</div><div class="m-val" id="drState">—</div></div>
+      <div class="rec-metric"><div class="m-lbl">Sign-in</div><div class="m-val" id="drTime">—</div></div>
+      <div class="rec-metric"><div class="m-lbl">Patrols</div><div class="m-val" id="drPatrol">—</div></div>
+      <div class="rec-metric"><div class="m-lbl">Hours</div><div class="m-val" id="drHours">—</div></div>
+    </div>
+    <div class="rec-section">
+      <span class="lbl">Assignment</span>
+      <dl class="kv" id="drKv"></dl>
+    </div>
+    <div class="rec-section">
+      <span class="lbl">Move officer</span>
+      <div class="mv-form">
+        <div class="row2">
+          <div class="form-row"><label for="mvSite">To site</label><select class="select" id="mvSite"></select></div>
+          <div class="form-row"><label for="mvWhen">When</label><select class="select" id="mvWhen"></select></div>
+        </div>
+        <div class="form-row"><label for="mvInstr">Instruction</label>
+          <textarea class="textarea" id="mvInstr" placeholder="Relieve the north gate, hand over keys to the supervisor on arrival."></textarea>
+        </div>
+        <div id="mvPending"></div>
+        <button class="btn primary" type="button" id="mvGo">Schedule move</button>
+      </div>
+    </div>
+    <div class="rec-section">
+      <span class="lbl">Recent shifts</span>
+      <table class="tbl compact"><thead><tr><th>Date</th><th>Site</th><th>Post</th><th class="n">In</th></tr></thead>
+        <tbody id="drShifts"></tbody></table>
+    </div>
+  </div>
+  <div class="drawer-foot">
+    <button class="btn sm" type="button" data-toast="Message queued to the officer's app">Message</button>
+    <button class="btn sm" type="button" data-toast="Calling the officer's handset">Call</button>
+    <span class="row" style="flex:1"></span>
+    <button class="btn sm" type="button" data-close>Close</button>
+  </div>
+</aside>
+
+<script src="js/data.js"></script>
+<script src="js/shell.js"></script>
+<script>
+(function () {
+  var STORE = 'bastion.v2.board';
+  var HERE = '08:42';
+  var WHEN = [
+    { id: 'now', label: 'Now', eta: 'immediately' },
+    { id: '2', label: 'In 2 hours', eta: '10:42' },
+    { id: '4', label: 'In 4 hours', eta: '12:42' },
+    { id: '7', label: 'In 7 hours', eta: '15:42' },
+    { id: 'shift', label: 'End of shift · 18:00', eta: '18:00' },
+    { id: 'tomorrow', label: 'Tomorrow 06:00', eta: 'Tue 06:00' }
+  ];
+  var queue = [];
+  var filter = [];
+  var picked = {};
+  var search = '';
+  var openId = null;
+
+  /* ---------- state ---------- */
+  function load() {
+    try {
+      var raw = JSON.parse(localStorage.getItem(STORE) || 'null');
+      if (!raw) return;
+      if (raw.sites) B.roster.forEach(function (o) { if (raw.sites[o.id]) o.site = raw.sites[o.id]; });
+      if (raw.queue) queue = raw.queue;
+    } catch (_) {}
+  }
+  function save() {
+    var sites = {};
+    B.roster.forEach(function (o) { sites[o.id] = o.site; });
+    try { localStorage.setItem(STORE, JSON.stringify({ sites: sites, queue: queue })); } catch (_) {}
+  }
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
+  function officersAt(k) { return B.roster.filter(function (o) { return o.site === k; }); }
+  function whenLabel(id) { for (var i = 0; i < WHEN.length; i++) if (WHEN[i].id === id) return WHEN[i]; return WHEN[0]; }
+  function pendingFor(id) {
+    for (var i = 0; i < queue.length; i++) if (queue[i].officers.indexOf(id) > -1) return queue[i];
+    return null;
+  }
+
+  /* ---------- controls ---------- */
+  var fromSel = document.getElementById('fromSite');
+  var toSel = document.getElementById('toSite');
+  var bulkSite = document.getElementById('bulkSite');
+  var bulkWhen = document.getElementById('bulkWhen');
+  var mvSite = document.getElementById('mvSite');
+  var mvWhen = document.getElementById('mvWhen');
+
+  var siteOpts = B.sites.map(function (s) { return '<option value="' + s.key + '">' + esc(s.name) + '</option>'; }).join('');
+  [fromSel, toSel, bulkSite, mvSite].forEach(function (el) { el.innerHTML = siteOpts; });
+  document.getElementById('addSite').innerHTML = '<option value="">Add a site…</option>' + siteOpts;
+  bulkWhen.innerHTML = WHEN.map(function (w) { return '<option value="' + w.id + '">' + w.label + '</option>'; }).join('');
+  mvWhen.innerHTML = WHEN.map(function (w) { return '<option value="' + w.id + '">' + w.label + '</option>'; }).join('');
+  toSel.value = 'civic';
+  bulkSite.value = 'civic';
+  mvSite.value = 'civic';
+
+  /* ---------- render ---------- */
+  function visible() {
+    var list = B.sites;
+    if (filter.length) list = filter.map(function (k) { return B.site(k); }).filter(Boolean);
+    if (search) {
+      var q = search.toLowerCase();
+      list = list.filter(function (s) { return (s.name + ' ' + s.area + ' ' + s.client).toLowerCase().indexOf(q) > -1; });
+    }
+    return list;
+  }
+
+  function slip(o) {
+    var p = pendingFor(o.id);
+    var site = B.site(o.site);
+    return '<div class="slip' + (picked[o.id] ? ' checked' : '') + '" draggable="true" data-officer="' + o.id + '" tabindex="0" role="button"' +
+      ' aria-label="' + esc(o.name) + ' · ' + esc(o.post) + '">' +
+      '<input type="checkbox" data-pick="' + o.id + '"' + (picked[o.id] ? ' checked' : '') + ' aria-label="Select ' + esc(o.name) + '">' +
+      '<div style="min-width:0">' +
+        '<div class="s-name">' + esc(o.name) + '</div>' +
+        '<div class="s-post">' + esc(o.post) + (o.time && o.time !== '—' ? ' · ' + esc(o.time) : '') + '</div>' +
+      '</div>' +
+      (p ? '<div class="pend">→ ' + esc(B.site(p.site).name) + ' · ' + esc(p.inWhen) + '</div>' : '') +
+    '</div>';
+  }
+
+  function colHTML(s) {
+    var crew = officersAt(s.key);
+    var on = B.onPost(s.key);
+    var allPicked = crew.length && crew.every(function (o) { return picked[o.id]; });
+    return '<section class="col" data-drop="' + s.key + '" aria-label="' + esc(s.name) + '">' +
+      '<div class="col-head">' +
+        '<div class="ch-top">' +
+          '<span class="ico">' + s.code + '</span>' +
+          '<h3 title="' + esc(s.name) + '">' + esc(s.name) + '</h3>' +
+          '<label class="chk" title="Select everyone at this site"><input type="checkbox" data-all="' + s.key + '"' + (allPicked ? ' checked' : '') + ' aria-label="Select all at ' + esc(s.name) + '"></label>' +
+        '</div>' +
+        '<div class="ch-meta"><span>' + on + ' / ' + s.posts + '</span></div>' +
+      '</div>' +
+      '<div class="col-list">' + (crew.map(slip).join('') || '<div class="empty" style="padding:14px 8px;font-size:10.5px">No officers</div>') + '</div>' +
+    '</section>';
+  }
+
+  function render() {
+    var sites = visible();
+    document.getElementById('siteCount').textContent = sites.length + ' site' + (sites.length === 1 ? '' : 's');
+
+    var cols = window.innerWidth >= 1320 ? 5 : window.innerWidth >= 1120 ? 4 : 3;
+    var per = cols;
+    var tracks = filter.length ? Math.max(sites.length, 1) : cols;
+    var rows = [];
+    for (var i = 0; i < sites.length; i += per) rows.push(sites.slice(i, i + per));
+    if (!rows.length) rows = [[]];
+
+    document.getElementById('board').innerHTML = rows.map(function (row) {
+      var tracksCss = (filter.length === 1)
+        ? 'minmax(0,420px)'
+        : 'repeat(' + tracks + ',minmax(0,1fr))';
+      return '<div class="board-row" style="grid-template-columns:' + tracksCss + '">' +
+        (row.length ? row.map(colHTML).join('') : '<div class="panel" style="grid-column:1/-1"><div class="empty" style="padding:44px 16px"><strong>No site matches</strong>Clear the search to see every site.</div></div>') +
+      '</div>';
+    }).join('');
+
+    var bench = B.roster.filter(function (o) { return o.site === 'bench'; });
+    document.getElementById('benchN').textContent = bench.length;
+    document.getElementById('bench').innerHTML = bench.map(slip).join('') || '<div class="empty" style="font-size:10.5px">No officers dormant</div>';
+
+    /* queue */
+    var q = document.getElementById('queue');
+    q.innerHTML = queue.length ? '<div class="queue">' + queue.map(function (b) {
+      var n = b.officers.length;
+      return '<div class="q-row">' +
+        '<span class="q-t">' + esc(b.at) + ' · ' + esc(b.inWhen) + '</span>' +
+        '<span class="q-who">' + (n === 1 ? esc(B.roster.filter(function (o) { return o.id === b.officers[0]; })[0].name) : n + ' officers') + '</span>' +
+        '<span>→ ' + esc(B.site(b.site).name) + '</span>' +
+        (b.instr ? '<span class="q-instr">“' + esc(b.instr) + '”</span>' : '') +
+        '<span class="q-eta" style="margin-left:auto">' + esc(b.eta) + '</span>' +
+        '<button class="btn xs" type="button" data-send="' + b.id + '">Send now</button>' +
+        '<button class="btn ghost xs" type="button" data-cancel="' + b.id + '">Cancel</button>' +
+      '</div>';
+    }).join('') + '</div>' : '';
+
+    /* chips */
+    document.getElementById('chips').innerHTML = filter.map(function (k) {
+      return '<span class="chip info">' + esc(B.site(k).name) + ' <button type="button" data-chip="' + k + '" style="color:inherit;margin-left:2px" aria-label="Remove ' + esc(B.site(k).name) + '">×</button></span>';
+    }).join('');
+    document.getElementById('clearFilter').hidden = !filter.length;
+    document.getElementById('addSite').style.display = filter.length ? '' : 'none';
+
+    /* bulk */
+    var n = Object.keys(picked).length;
+    document.getElementById('bulkbar').hidden = n === 0;
+    document.getElementById('bulkN').textContent = n;
+
+    save();
+  }
+
+  /* ---------- selection ---------- */
+  function toggle(id, on) {
+    if (on) picked[id] = true; else delete picked[id];
+    render();
+  }
+
+  document.addEventListener('click', function (e) {
+    var pick = e.target.closest('[data-pick]');
+    if (pick) { e.stopPropagation(); toggle(pick.getAttribute('data-pick'), pick.checked); return; }
+    var all = e.target.closest('[data-all]');
+    if (all) {
+      var k = all.getAttribute('data-all');
+      B.roster.filter(function (o) { return o.site === k; }).forEach(function (o) {
+        if (all.checked) picked[o.id] = true; else delete picked[o.id];
+      });
+      render(); return;
+    }
+    var chip = e.target.closest('[data-chip]');
+    if (chip) { filter = filter.filter(function (k) { return k !== chip.getAttribute('data-chip'); }); render(); return; }
+    var send = e.target.closest('[data-send]');
+    if (send) { sendBatch(send.getAttribute('data-send')); return; }
+    var cancel = e.target.closest('[data-cancel]');
+    if (cancel) { queue = queue.filter(function (b) { return b.id !== cancel.getAttribute('data-cancel'); }); render(); if (openId) paintPending(); toast('Scheduled move cancelled'); return; }
+    var slipEl = e.target.closest('.slip');
+    if (slipEl && !e.target.closest('input')) openSlip(slipEl.getAttribute('data-officer'));
+  });
+
+  document.getElementById('bulkClear').addEventListener('click', function () { picked = {}; render(); });
+
+  /* ---------- moves ---------- */
+  function moveTo(ids, siteKey, whenId, instr, fromDrawer) {
+    var w = whenLabel(whenId);
+    if (whenId === 'now') {
+      ids.forEach(function (id) {
+        var o = B.roster.filter(function (x) { return x.id === id; })[0];
+        if (!o) return;
+        o.site = siteKey; o.state = 'on'; o.time = HERE;
+        queue = queue.filter(function (b) { b.officers = b.officers.filter(function (x) { return x !== id; }); return b.officers.length; });
+      });
+      picked = {};
+      render();
+      toast(ids.length + ' officer' + (ids.length === 1 ? '' : 's') + ' moved to ' + B.site(siteKey).name, 'check');
+      return;
+    }
+    var batch = {
+      id: 'MV-' + Math.floor(Math.random() * 9000 + 1000),
+      site: siteKey, when: whenId, inWhen: w.label.replace('In ', '').replace(' hours', 'h').replace('End of shift · ', 'shift '),
+      at: HERE, eta: w.eta, instr: instr || '', officers: ids.slice()
+    };
+    queue.push(batch);
+    picked = {};
+    render();
+    toast(ids.length + ' officer' + (ids.length === 1 ? '' : 's') + ' queued for ' + B.site(siteKey).name + ' · ' + w.label, 'clock');
+  }
+
+  function sendBatch(id) {
+    var b = null;
+    queue.forEach(function (x) { if (x.id === id) b = x; });
+    if (!b) return;
+    b.officers.forEach(function (oid) {
+      var o = B.roster.filter(function (x) { return x.id === oid; })[0];
+      if (o) { o.site = b.site; o.state = 'on'; o.time = HERE; }
+    });
+    queue = queue.filter(function (x) { return x.id !== id; });
+    render();
+    toast(b.officers.length + ' officer' + (b.officers.length === 1 ? '' : 's') + ' sent to ' + B.site(b.site).name, 'check');
+  }
+
+  document.getElementById('mvGo').addEventListener('click', function () {
+    var o = B.roster.filter(function (x) { return x.id === openId; })[0];
+    if (!o) return;
+    moveTo([o.id], mvSite.value, mvWhen.value, document.getElementById('mvInstr').value.trim());
+    closeDrawer();
+  });
+
+  document.getElementById('bulkGo').addEventListener('click', function () {
+    var ids = Object.keys(picked);
+    if (!ids.length) return;
+    moveTo(ids, bulkSite.value, bulkWhen.value, document.getElementById('bulkInstr').value.trim());
+    document.getElementById('bulkInstr').value = '';
+  });
+
+  /* ---------- move desk ---------- */
+  document.getElementById('showPair').addEventListener('click', function () {
+    var a = fromSel.value, b = toSel.value;
+    if (a === b) { toast('Pick two different sites', 'filter'); return; }
+    filter = [a, b];
+    searchedClear();
+    render();
+  });
+  document.getElementById('clearFilter').addEventListener('click', function () { filter = []; render(); });
+
+  function searchedClear() { search = ''; document.getElementById('siteSearch').value = ''; }
+  document.getElementById('siteSearch').addEventListener('input', function (e) { search = e.target.value.trim(); render(); });
+
+  /* add a third/fourth site to the focused set */
+  document.getElementById('addSite').addEventListener('change', function (e) {
+    var k = e.target.value;
+    e.target.value = '';
+    if (!k || filter.indexOf(k) > -1 || filter.length >= 5) return;
+    filter.push(k); render();
+  });
+
+  /* ---------- drag ---------- */
+  var dragId = null;
+  document.addEventListener('dragstart', function (e) {
+    var s = e.target.closest('.slip');
+    if (!s) return;
+    dragId = s.getAttribute('data-officer');
+    s.classList.add('dragging');
+    try { e.dataTransfer.setData('text/plain', dragId); e.dataTransfer.effectAllowed = 'move'; } catch (_) {}
+  });
+  document.addEventListener('dragend', function (e) {
+    var s = e.target.closest('.slip');
+    if (s) s.classList.remove('dragging');
+    dragId = null;
+    document.querySelectorAll('.col.drop').forEach(function (c) { c.classList.remove('drop'); });
+  });
+  document.addEventListener('dragover', function (e) {
+    var col = e.target.closest('[data-drop]');
+    if (!col) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    document.querySelectorAll('.col.drop').forEach(function (c) { if (c !== col) c.classList.remove('drop'); });
+    col.classList.add('drop');
+  });
+  document.addEventListener('dragleave', function (e) {
+    var col = e.target.closest('[data-drop]');
+    if (col && !col.contains(e.relatedTarget)) col.classList.remove('drop');
+  });
+  document.addEventListener('drop', function (e) {
+    var col = e.target.closest('[data-drop]');
+    if (!col) return;
+    e.preventDefault();
+    col.classList.remove('drop');
+    var id = dragId || e.dataTransfer.getData('text/plain');
+    var to = col.getAttribute('data-drop');
+    if (!id) return;
+    var o = B.roster.filter(function (x) { return x.id === id; })[0];
+    if (!o || o.site === to) return;
+    /* a direct move supersedes any queued plan for that officer */
+    queue.forEach(function (b) { b.officers = b.officers.filter(function (x) { return x !== id; }); });
+    queue = queue.filter(function (b) { return b.officers.length; });
+    o.site = to; o.state = 'on'; o.time = HERE;
+    render();
+    toast(to === 'bench' ? o.name.split(' ')[0] + ' marked dormant' : o.name.split(' ')[0] + ' moved to ' + B.site(to).name, 'swap');
+  });
+
+  /* ---------- drawer ---------- */
+  var scrim = document.getElementById('scrim');
+  var drawer = document.getElementById('drawer');
+  var drawerCtl = mountDrawer(drawer, scrim);
+  function closeDrawer() { drawerCtl.close(); openId = null; }
+
+  function openSlip(id) {
+    var o = B.roster.filter(function (x) { return x.id === id; })[0];
+    if (!o) return;
+    openId = id;
+    var s = B.site(o.site);
+    document.getElementById('drName').textContent = o.name;
+    document.getElementById('drSub').textContent = o.id + ' · ' + o.post + ' · ' + (s ? s.name : 'Dormant');
+    document.getElementById('drState').textContent = B.stateLabel[o.state];
+    document.getElementById('drTime').textContent = o.time;
+    document.getElementById('drPatrol').textContent = o.state === 'off' ? '—' : '14 / 14';
+    document.getElementById('drHours').textContent = o.state === 'off' ? '0' : '46.5';
+    document.getElementById('drKv').innerHTML =
+      '<dt>Site</dt><dd>' + esc(s ? s.name : 'Dormant') + '</dd>' +
+      '<dt>Client</dt><dd>' + esc(s ? s.client : 'Unassigned') + '</dd>' +
+      '<dt>Phone</dt><dd class="mono">+234 803 ' + (400 + parseInt(id.slice(-3), 10)) + ' 81' + (parseInt(id.slice(-1), 10) + 2) + '</dd>' +
+      '<dt>NFC tag</dt><dd class="mono">' + (o.tag ? o.tag + ' · active' : 'Not issued') + '</dd>' +
+      '<dt>Shift</dt><dd>06:00 – 18:00 · day</dd>' +
+      '<dt>Employment</dt><dd>Full time · since Mar 2023</dd>';
+    document.getElementById('drShifts').innerHTML = [
+      ['16 Nov', s ? s.name : 'Dormant', o.post, o.time],
+      ['15 Nov', s ? s.name : 'Dormant', o.post, '05:58'],
+      ['14 Nov', s ? s.name : 'Dormant', o.post, '06:01'],
+      ['13 Nov', s ? s.name : 'Dormant', o.post, '05:56']
+    ].map(function (r) {
+      return '<tr><td>' + r[0] + '</td><td class="name">' + esc(r[1]) + '</td><td class="dim">' + esc(r[2]) + '</td><td class="n">' + r[3] + '</td></tr>';
+    }).join('');
+    mvSite.value = s ? B.sites.filter(function (x) { return x.key !== s.key; })[0].key : B.sites[0].key;
+    document.getElementById('mvInstr').value = '';
+    paintPending();
+    drawerCtl.open();
+  }
+
+  function paintPending() {
+    var p = openId ? pendingFor(openId) : null;
+    document.getElementById('mvPending').innerHTML = p
+      ? '<div class="pending-box">Scheduled for <b>' + esc(B.site(p.site).name) + '</b> · ' + esc(whenLabel(p.when).label) +
+        (p.instr ? '<br>“' + esc(p.instr) + '”' : '') +
+        '<div style="margin-top:5px"><button class="btn xs" type="button" data-cancel="' + p.id + '">Cancel this move</button></div></div>'
+      : '';
+  }
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && e.target.classList && e.target.classList.contains('slip')) {
+      e.preventDefault(); openSlip(e.target.getAttribute('data-officer'));
+    }
+  });
+
+  /* ---------- bulk helpers ---------- */
+  document.getElementById('fill').addEventListener('click', function () {
+    var bench = B.roster.filter(function (o) { return o.site === 'bench'; });
+    var moved = 0;
+    B.sites.forEach(function (s) {
+      var gap = s.posts - B.onPost(s.key);
+      while (gap > 0 && bench.length) {
+        var o = bench.shift();
+        o.site = s.key; o.state = 'on'; o.time = HERE; gap--; moved++;
+      }
+    });
+    render();
+    toast(moved ? moved + ' open posts filled from dormant' : 'No dormant officer matches an open post', moved ? 'check' : 'alert');
+  });
+
+  document.getElementById('publish').addEventListener('click', function () {
+    toast('Roster published · 59 officers notified', 'send');
+  });
+
+  var resetBtn = document.getElementById('resetBoard'), armed = false, armT;
+  resetBtn.addEventListener('click', function () {
+    if (!armed) {
+      armed = true; resetBtn.textContent = 'Reset board?';
+      armT = setTimeout(function () { armed = false; resetBtn.textContent = 'Reset'; }, 3000);
+      return;
+    }
+    clearTimeout(armT);
+    try { localStorage.removeItem('bastion.v2.board'); } catch (_) {}
+    location.reload();
+  });
+
+  load();
+  render();
+  window.addEventListener('resize', render);
+  var focusHash = location.hash.match(/#f=([a-z]+)/);
+  if (focusHash && B.site(focusHash[1])) {
+    filter = [focusHash[1]];
+    render();
+  }
+})();
+</script>
+</body>
+</html>

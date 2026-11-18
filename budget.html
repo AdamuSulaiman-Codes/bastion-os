@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Budget · Bastion OS</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="css/console.css">
+<script src="js/splash.js"></script>
+<link rel="stylesheet" href="css/pages.css">
+<link rel="stylesheet" href="css/fin.css">
+</head>
+<body data-nav="budget" data-crumb="Finances">
+<div class="app">
+  <aside data-shell="rail"></aside>
+  <div class="shell">
+    <header data-shell="topbar"></header>
+
+    <div class="page">
+      <div class="page-head">
+        <div class="page-title">Budget <span class="id">NOV · FY26</span></div>
+        <div class="page-tools">
+          <select class="select" id="period" style="width:132px" aria-label="Month">
+            <option>November 2026</option><option>October 2026</option>
+          </select>
+          <button class="btn sm" type="button" id="exportBtn"><svg class="ic"><use href="#i-download"/></svg>Export</button>
+        </div>
+      </div>
+
+      <div class="body fin-body">
+        <section class="kpis" aria-label="Budget this month">
+          <div class="kpi"><div class="k-label"><span class="micro">Budgeted</span></div><div class="k-val" id="kBudget">—</div><div class="k-sub">set 1 Nov · six cost lines</div></div>
+          <div class="kpi"><div class="k-label"><span class="micro">Spent</span></div><div class="k-val" id="kSpent">—</div><div class="k-sub" id="kSpentSub"></div></div>
+          <div class="kpi"><div class="k-label"><span class="micro">Left</span></div><div class="k-val" id="kLeft">—</div><div class="k-sub">for the last 13 days</div></div>
+          <div class="kpi flag"><div class="k-label"><span class="micro">Lines over budget</span></div><div class="k-val" id="kOver">—</div><div class="k-sub" id="kOverSub"></div></div>
+          <div class="kpi"><div class="k-label"><span class="micro">Day 17 of 30</span></div><div class="k-val">57<small>%</small></div><div class="k-sub">of the month gone</div></div>
+        </section>
+
+        <div class="pace">
+          <span class="plbl">Month pace</span>
+          <span class="pbar" aria-hidden="true"><i id="paceFill"></i><s id="paceMark"></s></span>
+          <b id="paceText"></b>
+        </div>
+
+        <section class="fin-charts" id="charts" aria-label="Budget against spend"></section>
+
+        <section class="panel table-panel budget">
+          <div class="panel-head"><h2>Cost lines</h2><span class="cap" id="budgetCap"></span></div>
+          <div class="wrap-scroll">
+            <table class="tbl compact">
+              <thead><tr><th>Cost line</th><th class="n">Budgeted</th><th class="n">Spent</th><th class="n">Left</th><th>Used</th></tr></thead>
+              <tbody id="budgetRows"></tbody>
+            </table>
+          </div>
+          <div class="panel-foot" id="budgetFoot"></div>
+        </section>
+      </div>
+
+      <footer data-shell="status"></footer>
+    </div>
+  </div>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/fin.js"></script>
+<script src="js/shell.js"></script>
+<script>
+(function () {
+  boardStore.apply();
+  var $ = function (id) { return document.getElementById(id); };
+
+  var budget = 0, spent = 0, over = [];
+  var rows = FIN.costSplit.map(function (c) {
+    var b = FIN.budget[c[0]] || 0, s = c[1], left = b - s;
+    budget += b; spent += s;
+    if (left < 0) over.push({ name: c[0], by: -left });
+    var pct = b ? Math.min(100, s / b * 100) : 0;
+    return '<tr>' +
+      '<td class="name">' + c[0] + '</td>' +
+      '<td class="n">' + FIN.mm(b) + '</td>' +
+      '<td class="n">' + FIN.mm(s) + '</td>' +
+      '<td class="n' + (left < 0 ? ' over' : '') + '">' + (left < 0 ? FIN.mm(-left) + ' over' : FIN.mm(left) + ' left') + '</td>' +
+      '<td class="used"><span class="meter' + (left < 0 ? ' bad' : '') + '"><i style="width:' + pct.toFixed(1) + '%"></i></span>' + Math.round(s / b * 100) + '%</td>' +
+      '</tr>';
+  });
+  var left = budget - spent;
+
+  $('kBudget').innerHTML = budget.toFixed(2) + '<small>m</small>';
+  $('kSpent').innerHTML = spent.toFixed(2) + '<small>m</small>';
+  $('kSpentSub').textContent = Math.round(spent / budget * 100) + '% of budget';
+  $('kLeft').innerHTML = left.toFixed(2) + '<small>m</small>';
+  $('kOver').textContent = over.length;
+  $('kOverSub').textContent = over.length ? over.map(function (o) { return o.name.split(' ')[0]; }).join(' · ') : 'every line inside budget';
+
+  $('budgetRows').innerHTML = rows.join('') +
+    '<tr class="total"><td>Total</td><td class="n">' + FIN.mm(budget) + '</td><td class="n">' + FIN.mm(spent) + '</td>' +
+    '<td class="n">' + FIN.mm(left) + ' left</td><td class="used">' + Math.round(spent / budget * 100) + '%</td></tr>';
+  $('budgetCap').textContent = FIN.costSplit.length + ' lines';
+  $('budgetFoot').innerHTML = '<span>' + over.length + ' over · ' +
+    over.map(function (o) { return o.name.split(' ')[0] + ' ' + FIN.mm(o.by); }).join(', ') + '</span>' +
+    '<span class="right">Month ends 30 Nov</span>';
+
+  var pct = spent / budget * 100;
+  $('paceFill').style.width = pct.toFixed(1) + '%';
+  $('paceMark').style.left = '56.7%';
+  $('paceText').textContent = pct.toFixed(1) + '% of budget after 57% of the month';
+
+  /* ---------- charts ---------- */
+  var maxLine = Math.max.apply(null, FIN.costSplit.map(function (c) { return Math.max(c[1], FIN.budget[c[0]] || 0); }));
+  $('charts').innerHTML = [
+    FIN.chartCard('Budget against spend', '₦m',
+      FIN.cols(FIN.costSplit.map(function (c) {
+        return { x: c[2], a: c[1], b: FIN.budget[c[0]], cap: c[1].toFixed(1) };
+      }), maxLine),
+      'Spent blue · budget pale'),
+    FIN.chartCard('Where the budget went', FIN.mm(spent),
+      FIN.donut(FIN.costSplit.map(function (c) { return [c[2], c[1], FIN.mm(c[1])]; }), spent.toFixed(1), 'spent'),
+      'Spent against a ₦' + budget.toFixed(2) + 'm plan'),
+    FIN.chartCard('Over and under', over.length + ' over',
+      FIN.bars(FIN.costSplit.map(function (c) {
+        var b = FIN.budget[c[0]] || 0, d = c[1] - b;
+        return [c[2], b ? c[1] / b * 100 : 0,
+          d > 0 ? FIN.mm(d) + ' over' : FIN.mm(-d) + ' under', d > 0];
+      })),
+      'Share of each line used · 100% is the plan')
+  ].join('');
+
+  $('period').addEventListener('change', function (e) {
+    toast(e.target.value + ' selected · figures show November', 'calendar');
+  });
+  $('exportBtn').addEventListener('click', function () {
+    toast('Budget exported to CSV', 'download');
+  });
+})();
+</script>
+</body>
+</html>

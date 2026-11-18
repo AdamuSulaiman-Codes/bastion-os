@@ -1,0 +1,50 @@
+{
+  "kind": "critique-panel",
+  "subject": "Bastion OS console v2 · Data analytics given a real chart layer, sign-in and activation reduced to one card",
+  "score": 4,
+  "axes": {
+    "clarity": {
+      "score": 5,
+      "notes": "The page now answers 'how much, of what, when' with charts instead of two blocks of numerals: records over time as stacked columns, the record mix as a donut, attendance against the 95% target, per-site coverage, incidents and alerts split by severity, and posts filled. Every figure derives from the same period object the register cards use, so the donut total, the trend sum and the KPI strip cannot disagree."
+    },
+    "hierarchy": {
+      "score": 4,
+      "notes": "Period band, then the four register totals, then five rows of charts, then the downloadable registers. Each chart row is measured level at 1440 (269/269, 294/294, 238/238), and the attendance plot grows to fill its card so the tall coverage table beside it no longer leaves a 100px band of white."
+    },
+    "typography": {
+      "score": 4,
+      "notes": "Chart values are mono at 9.5–10px, axis labels mono 9px thinned to eight across the plot, so a 30-day series never turns into a smear. The attendance axis is scaled to a 120% top so a 100% bar still has room for its value label above the target line."
+    },
+    "motion": {
+      "score": 3,
+      "notes": "None. Changing the period re-renders in place; no transitions were added to the bars."
+    },
+    "brand": {
+      "score": 5,
+      "notes": "One hue. Four series read as steps of the same navy (#1d5590, #35699b, #7d9ab5, #c2cad2), the target line is --blue-line, and the auth screens keep the console navy behind a white panel — no new colour on either surface."
+    }
+  },
+  "fixed": [
+    "The attendance trend for a single day plotted 24 hourly buckets, so the chart was 20 empty columns and a spike. A one-day period now shows the seven days ending on that date, and the caption names the window.",
+    "Hourly and daily buckets with no records drew a 2% sliver that read as a picket fence of hairlines across the plot. Empty buckets are now empty.",
+    "The chart column class was .col, which pages.css already defines as the board's bordered column (1px border, 240px min-height) — every bar inherited a border, a panel background and a floor height. Renamed to .bcol.",
+    "Month buckets were weighted equally regardless of how many days they held, so a half-month (21–31 May) carried a full month's records and every rate clamped at 100%. Shape now follows the bucket's day count; all-time reads 92–96% instead of 85/100/90/86/100/100/79.",
+    "The 95% target label sat at the right end of the line and collided with the last bar's value ('100'). The target is now stated in the panel caption and the plot carries the line alone.",
+    "Coverage by site printed the attendance percentage in a column whose header read '%' but sat above the patrol track. Rows now read site · signed in · attendance bar+% · patrol bar+%.",
+    "The auth screens opened as a 900px 'window' with a second navy column restating sites, officers, posts, incidents, last sign-in, a version strip and a build hash. Both are now a single 372px card: brand, one heading, the fields, and one way out.",
+    "The licence key was four separate 4-character inputs with auto-advance, cross-field backspace, arrow keys and paste splitting. One input formats itself as BSTN-XXXX-XXXX-XXXX, so paste and backspace behave the way a text field should."
+  ],
+  "verified": {
+    "console_errors": "0 on all 22 pages",
+    "overflow": "0 page-level horizontal overflow at 1440 for all pages; analytics at 1440 / 1280 / 1024 / 860 / 760 with no clipped site or bar label",
+    "charts": "every preset (today / 7 days / month / last month / all time) plus custom ranges of 1, 16 and 321 days render the right bucket unit (hour / day / week / month) and totals that sum to the register cards",
+    "panels": "chart rows level at 1440 (269/269, 294/294, 238/238)",
+    "auth": "sign-in blocks empty email, missing domain and empty password, reveals the password, sends a reset, and lands on Overview; activation formats a typed or pasted key, blocks an incomplete key and a wrong prefix, shows the receipt with a masked key, and returns to the field"
+  },
+  "known_limits": [
+    "Single-day hourly trends are real only where the console holds a time (check-ins, incidents, alerts); patrol reads are spread evenly across the 06:00–13:00 shift.",
+    "Bucket volumes for multi-day periods follow each day-count with a small deterministic jitter, so the same range always renders the same bars but the day-to-day shape is derived, not recorded.",
+    "Per-site coverage, severity splits and posts filled describe today and say so in their captions; they do not follow the period selector.",
+    "Below 980 the chart grid goes single-column, which makes the page long on a laptop window."
+  ]
+}

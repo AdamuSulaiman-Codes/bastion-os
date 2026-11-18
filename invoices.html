@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Invoices · Bastion OS</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="css/console.css">
+<script src="js/splash.js"></script>
+<link rel="stylesheet" href="css/pages.css">
+<link rel="stylesheet" href="css/fin.css">
+</head>
+<body data-nav="invoices" data-crumb="Finances">
+<div class="app">
+  <aside data-shell="rail"></aside>
+  <div class="shell">
+    <header data-shell="topbar"></header>
+
+    <div class="page">
+      <div class="page-head">
+        <div class="page-title">Invoices <span class="id">NOV · FY26</span></div>
+        <div class="page-tools">
+          <label class="field" style="min-width:230px">
+            <svg class="ic"><use href="#i-search"/></svg>
+            <input type="text" id="q" placeholder="Find an invoice or client" aria-label="Search invoices">
+          </label>
+          <button class="btn primary sm" type="button" id="draftBtn"><svg class="ic"><use href="#i-spark"/></svg>Draft with Napoleon</button>
+        </div>
+      </div>
+
+      <div class="body fin-body">
+        <section class="kpis" aria-label="Invoice book">
+          <div class="kpi"><div class="k-label"><span class="micro">Billed this month</span></div><div class="k-val" id="kBilled">—</div><div class="k-sub" id="kCount"></div></div>
+          <div class="kpi"><div class="k-label"><span class="micro">Collected</span></div><div class="k-val" id="kPaid">—</div><div class="k-sub" id="kPaidSub"></div></div>
+          <div class="kpi"><div class="k-label"><span class="micro">Still unpaid</span></div><div class="k-val" id="kUnpaid">—</div><div class="k-sub" id="kUnpaidSub"></div></div>
+          <div class="kpi flag"><div class="k-label"><span class="micro">Late</span></div><div class="k-val" id="kLate">—</div><div class="k-sub" id="kLateSub"></div></div>
+          <div class="kpi"><div class="k-label"><span class="micro">Average invoice</span></div><div class="k-val" id="kAvg">—</div><div class="k-sub">across the book</div></div>
+        </section>
+
+        <section class="fin-charts" id="charts" aria-label="Invoice charts"></section>
+
+        <div class="fin-main">
+          <section class="panel table-panel">
+            <div class="panel-head"><h2>Issued this month</h2><span class="cap" id="invCount"></span></div>
+            <div class="wrap-scroll">
+              <table class="tbl">
+                <thead><tr><th>Invoice</th><th>Client</th><th>Issued</th><th>Due</th><th class="n">Amount</th><th>Status</th><th></th></tr></thead>
+                <tbody id="invoiceRows"></tbody>
+              </table>
+              <div class="empty" id="invoiceEmpty" hidden><strong>No invoice matches</strong>Clear the search to see all seven.</div>
+            </div>
+            <div class="panel-foot"><span id="invoiceFoot"></span><span class="right">Amounts in naira</span></div>
+          </section>
+
+          <section class="panel" id="overdue"></section>
+        </div>
+      </div>
+
+      <footer data-shell="status"></footer>
+    </div>
+  </div>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="draftDrawer" role="dialog" aria-modal="true" aria-labelledby="draftTitle">
+  <div class="drawer-head">
+    <h2 id="draftTitle">Napoleon · invoice draft</h2>
+    <div class="panel-tools"><button class="icb" type="button" data-close aria-label="Close"><svg class="ic"><use href="#i-x"/></svg></button></div>
+  </div>
+  <div class="drawer-body">
+    <div class="draft-client">
+      <label class="lbl" for="draftClient">Client</label>
+      <select class="select" id="draftClient" style="margin-left:auto;width:210px"></select>
+    </div>
+    <div style="padding:9px 12px;border-bottom:1px solid var(--line)">
+      <div class="hstack" style="gap:8px">
+        <span class="micro">Period</span><span class="mono" style="font-size:11px">November 2026 · open</span>
+      </div>
+    </div>
+    <div style="padding:9px 12px">
+      <button class="btn primary sm" type="button" id="genDraft" style="width:100%;height:28px">Read records and draft</button>
+    </div>
+    <div id="draftOut" hidden>
+      <div style="padding:0 12px 6px">
+        <div class="read-row">Attendance · <span id="rdAtt">348 records</span><em>0.4s</em></div>
+        <div class="read-row">Roster · contracted posts<em>0.3s</em></div>
+        <div class="read-row">Shift log · relief cover<em>0.3s</em></div>
+        <div class="read-row">Device log · tag replacements<em>0.2s</em></div>
+      </div>
+      <div style="padding:6px 12px 0"><div class="micro" style="margin-bottom:4px">Lines</div></div>
+      <div style="padding:0 12px" id="draftLines"></div>
+      <div class="draft-total"><span class="micro">Total</span><b id="draftTotal">₦0</b></div>
+      <div style="padding:8px 12px 14px" class="hint">Drafted from November records. Nothing is sent until you review and create the invoice.</div>
+    </div>
+  </div>
+  <div class="drawer-foot">
+    <button class="btn sm" type="button" data-close>Cancel</button>
+    <button class="btn primary sm" type="button" id="createInv" style="margin-left:auto" disabled>Create invoice</button>
+  </div>
+</aside>
+
+<script src="js/data.js"></script>
+<script src="js/fin.js"></script>
+<script src="js/shell.js"></script>
+<script>
+(function () {
+  boardStore.apply();
+  var $ = function (id) { return document.getElementById(id); };
+  var q = '';
+
+  function shown() {
+    return FIN.invoices.filter(function (r) {
+      return !q || (r.id + ' ' + r.client + ' ' + r.state).toLowerCase().indexOf(q) > -1;
+    });
+  }
+
+  function paintKpis() {
+    var t = FIN.invoiceTotals();
+    $('kBilled').innerHTML = (t.billed / 1e6).toFixed(2) + '<small>m</small>';
+    $('kCount').textContent = t.count + ' invoices issued';
+    $('kPaid').innerHTML = (t.paid / 1e6).toFixed(2) + '<small>m</small>';
+    $('kPaidSub').textContent = Math.round(t.paid / t.billed * 100) + '% of the book';
+    $('kUnpaid').innerHTML = (t.unpaid / 1e6).toFixed(2) + '<small>m</small>';
+    $('kUnpaidSub').textContent = t.openCount + ' invoices open';
+    $('kLate').innerHTML = (t.late / 1e6).toFixed(2) + '<small>m</small>';
+    $('kLateSub').textContent = t.lateCount + ' invoices past due';
+    $('kAvg').innerHTML = (t.billed / t.count / 1e6).toFixed(2) + '<small>m</small>';
+  }
+
+  function paintCharts() {
+    var t = FIN.invoiceTotals();
+    var owed = FIN.invoices.filter(function (r) { return r.state !== 'Paid'; })
+      .sort(function (a, b) { return b.amount - a.amount; });
+    var outstanding = FIN.invoices.filter(function (r) { return r.state === 'Sent'; })
+      .reduce(function (a, r) { return a + r.amount; }, 0);
+    var max = Math.max.apply(null, FIN.invoices.map(function (r) { return r.amount; }));
+
+    $('charts').innerHTML = [
+      FIN.chartCard('How much of the book is in', Math.round(t.paid / t.billed * 100) + '% collected',
+        FIN.donut([
+          ['Collected', t.paid, FIN.mm(t.paid / 1e6)],
+          ['Not due yet', outstanding, FIN.mm(outstanding / 1e6)],
+          ['Late', t.late, FIN.mm(t.late / 1e6)]
+        ], (t.paid / t.billed * 100).toFixed(0) + '%', 'in'),
+        'Three states across seven invoices'),
+      FIN.chartCard('Value per invoice', FIN.mm(t.billed / 1e6),
+        FIN.cols(FIN.invoices.map(function (r) {
+          return { x: r.id.slice(4), a: r.amount / 1e5, cap: (r.amount / 1e6).toFixed(1) };
+        }), max / 1e5),
+        '₦0.1m per unit · newest last'),
+      FIN.chartCard('What clients still owe', FIN.mm(t.unpaid / 1e6),
+        FIN.bars(owed.map(function (r) {
+          return [r.client.replace(FIN.short, ''), r.amount, FIN.mm(r.amount / 1e6), r.state === 'Overdue'];
+        })),
+        owed.length + ' open · ' + t.lateCount + ' late')
+    ].join('');
+  }
+
+  function paintRows() {
+    var rows = shown();
+    $('invoiceRows').innerHTML = rows.map(function (r) {
+      var label = r.state === 'Overdue' ? 'Remind' : r.state === 'Sent' ? 'Send' : 'Receipt';
+      return '<tr>' +
+        '<td class="name">' + r.id + '</td>' +
+        '<td>' + r.client + '</td>' +
+        '<td class="dim">' + r.issued + '</td>' +
+        '<td class="dim">' + r.due + '</td>' +
+        '<td class="n">' + FIN.money(r.amount) + '</td>' +
+        '<td>' + FIN.chip(r.state) + '</td>' +
+        '<td><div class="rowacts"><button class="btn xs" type="button" data-act="invoice" data-ref="' + r.id + '">' + label + '</button></div></td>' +
+        '</tr>';
+    }).join('');
+    $('invoiceEmpty').hidden = rows.length > 0;
+
+    var all = FIN.invoiceTotals();
+    $('invCount').textContent = rows.length === all.count ? all.count + ' invoices' : rows.length + ' of ' + all.count;
+    $('invoiceFoot').textContent = FIN.mm(all.billed / 1e6) + ' billed · ' + FIN.mm(all.unpaid / 1e6) +
+      ' unpaid · ' + FIN.mm(all.late / 1e6) + ' late';
+  }
+
+  function paintOverdue() {
+    var late = FIN.invoices.filter(function (r) { return r.state === 'Overdue'; });
+    $('overdue').innerHTML =
+      '<div class="panel-head"><h2>Past due</h2><span class="cap">' + late.length + '</span></div>' +
+      '<div class="panel-body" style="padding:0">' +
+      (late.length ? late.map(function (r) {
+        return '<div class="row"><div class="r-main"><div class="r-title">' + r.client + '</div>' +
+          '<div class="r-meta">' + r.id + ' · ' + FIN.mm(r.amount / 1e6) + ' · due ' + r.due + '</div></div>' +
+          '<div class="r-side"><button class="btn xs" type="button" data-remind="' + r.id + '">Remind</button></div></div>';
+      }).join('') : '<div class="empty" style="padding:18px 12px"><strong>Nothing past due</strong>Every invoice is inside its terms.</div>') +
+      '</div>' +
+      '<div class="panel-foot"><span>Reminders go from accounts@spectra.ng</span><span class="right">' +
+      FIN.mm(FIN.invoiceTotals().late / 1e6) + '</span></div>';
+  }
+
+  function paint() { paintKpis(); paintCharts(); paintRows(); paintOverdue(); }
+
+  $('q').addEventListener('input', function (e) {
+    q = e.target.value.trim().toLowerCase();
+    paintRows();
+  });
+
+  document.addEventListener('click', function (e) {
+    var rem = e.target.closest('[data-remind]');
+    if (rem) {
+      var id = rem.getAttribute('data-remind');
+      var row = FIN.invoices.filter(function (r) { return r.id === id; })[0];
+      toast('Reminder sent for ' + id + (row ? ' · ' + row.client : ''), 'mail');
+      return;
+    }
+    var b = e.target.closest('[data-act="invoice"]');
+    if (!b) return;
+    var ref = b.getAttribute('data-ref');
+    var inv = FIN.invoices.filter(function (r) { return r.id === ref; })[0];
+    if (!inv) return;
+    if (inv.state === 'Overdue') toast('Reminder sent for ' + ref + ' · ' + inv.client, 'mail');
+    else if (inv.state === 'Sent') toast(ref + ' sent to ' + inv.client, 'mail');
+    else toast('Receipt ' + ref + ' downloaded', 'download');
+  });
+
+  /* ---------- the Napoleon draft ---------- */
+  var drawer = $('draftDrawer'), scrim = $('scrim'), draftOpen = false, draftTotal = 0, draftClient = 'Cedar Retail Group';
+  var clientSel = $('draftClient');
+  clientSel.innerHTML = FIN.clients.map(function (c) { return '<option>' + c.n + '</option>'; }).join('');
+
+  function openDraft(client) {
+    draftOpen = true;
+    draftClient = client;
+    clientSel.value = client;
+    $('draftOut').hidden = true;
+    $('createInv').disabled = true;
+    $('genDraft').textContent = 'Read records and draft';
+    scrim.classList.add('open');
+    drawer.classList.add('open');
+    setTimeout(function () { $('genDraft').focus(); }, 60);
+  }
+  function closeDraft() {
+    draftOpen = false;
+    scrim.classList.remove('open');
+    drawer.classList.remove('open');
+  }
+  drawer.querySelectorAll('[data-close]').forEach(function (b) { b.addEventListener('click', closeDraft); });
+  scrim.addEventListener('click', closeDraft);
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && draftOpen) closeDraft();
+  });
+
+  $('draftBtn').addEventListener('click', function () { openDraft('Cedar Retail Group'); });
+
+  $('genDraft').addEventListener('click', function () {
+    draftClient = clientSel.value;
+    var lines = FIN.drafts[draftClient];
+    if (!lines) {
+      var c = FIN.clients.filter(function (x) { return x.n === draftClient; })[0];
+      lines = [['Contracted guard services × 30 days', c ? c.v : 0]];
+    }
+    draftTotal = lines.reduce(function (a, l) { return a + l[1]; }, 0);
+    $('draftLines').innerHTML = lines.map(function (l) {
+      return '<div class="draft-line"><span>' + l[0] + '</span><span>' + FIN.ngn(l[1]) + '</span></div>';
+    }).join('');
+    $('draftTotal').textContent = FIN.ngn(draftTotal);
+    $('rdAtt').textContent = draftClient === 'Cedar Retail Group' ? '348 records' : '402 records';
+    $('draftOut').hidden = false;
+    $('createInv').disabled = false;
+    this.textContent = 'Redraft for ' + draftClient;
+  });
+
+  $('createInv').addEventListener('click', function () {
+    var max = FIN.invoices.reduce(function (m, r) { return Math.max(m, parseInt(r.id.slice(4), 10) || 0); }, 0);
+    var id = 'INV-' + (max + 1);
+    FIN.invoices.unshift({ id: id, client: draftClient, issued: '17 Nov', due: '30 Nov', amount: draftTotal, state: 'Sent' });
+    closeDraft();
+    q = '';
+    $('q').value = '';
+    paint();
+    toast(id + ' created for ' + draftClient + ' · ' + FIN.ngn(draftTotal), 'check');
+  });
+
+  paint();
+})();
+</script>
+</body>
+</html>
