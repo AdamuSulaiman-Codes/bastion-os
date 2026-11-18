@@ -50,6 +50,11 @@
   #detail .rec-grid { flex: 1 1 auto; }
   .cr-diag { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; align-items: stretch; }
   .cr-list .cl-scroll { max-height: 340px; overflow: auto; }
+  /* the filter segment is wider than the head can hold beside the title, so it
+     gets its own row instead of squeezing the count into a one-word column */
+  .cr-filters { padding: 7px 8px; border-bottom: 1px solid var(--line); background: var(--panel-2); }
+  .cr-filters .seg { display: flex; }
+  .cr-filters .seg button { flex: 1 1 0; padding: 0 4px; }
 
   .crow {
     display: grid; grid-template-columns: 42px minmax(0, 1fr) auto;
@@ -271,14 +276,14 @@
           <section class="panel cr-list" aria-label="Crawled threats">
             <div class="panel-head">
               <h2>Threats</h2><span class="cap" id="listCap">7 in 48 h</span>
-              <div class="panel-tools">
-                <div class="seg" role="group" aria-label="Filter threats">
-                  <button type="button" aria-pressed="true" data-f="all">All</button>
-                  <button type="button" aria-pressed="false" data-f="New">New</button>
-                  <button type="button" aria-pressed="false" data-f="Watching">Watching</button>
-                  <button type="button" aria-pressed="false" data-f="Sent">Sent</button>
-                  <button type="button" aria-pressed="false" data-f="Dismissed">Dismissed</button>
-                </div>
+            </div>
+            <div class="cr-filters">
+              <div class="seg" role="group" aria-label="Filter threats">
+                <button type="button" aria-pressed="true" data-f="all">All</button>
+                <button type="button" aria-pressed="false" data-f="New">New</button>
+                <button type="button" aria-pressed="false" data-f="Watching">Watching</button>
+                <button type="button" aria-pressed="false" data-f="Sent">Sent</button>
+                <button type="button" aria-pressed="false" data-f="Dismissed">Dismissed</button>
               </div>
             </div>
             <div style="padding:7px 8px;border-bottom:1px solid var(--line);background:var(--panel-2)">
